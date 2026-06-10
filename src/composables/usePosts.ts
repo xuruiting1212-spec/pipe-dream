@@ -118,12 +118,13 @@ async function savePost(
   loading.value = true
   error.value = null
   try {
-    // 获取当前用户 ID
+    // 获取当前用户 ID，显式转为 string 避免类型不兼容
     const { data: { user } } = await supabase.auth.getUser()
+    const userId: string | null = user?.id ? String(user.id) : null
 
     const postData = {
       ...form,
-      user_id: user?.id ?? null,
+      user_id: userId,
     }
 
     let result
