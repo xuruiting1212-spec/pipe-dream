@@ -8,6 +8,9 @@
       "@/*": ["./src/*"]
     },
 
+    /* TS 6.x 兼容：baseUrl 在新版中已废弃但仍需保留 */
+    "ignoreDeprecations": "6.0",
+
     /* Linting */
     "noUnusedLocals": false,
     "noUnusedParameters": false,
