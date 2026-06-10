@@ -123,7 +123,7 @@ export const usePostsStore = defineStore('posts', () => {
     error.value = null
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const postData = { ...form, user_id: user?.id }
+      const postData = { ...form, user_id: user?.id ?? null }
 
       let result
       if (postId) {

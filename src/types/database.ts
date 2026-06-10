@@ -44,6 +44,7 @@ export interface Database {
           images?: string[]
           video?: string | null
           is_draft?: boolean
+          user_id?: string | null
         }
       }
     }

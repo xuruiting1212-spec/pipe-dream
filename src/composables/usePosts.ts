@@ -123,7 +123,7 @@ async function savePost(
 
     const postData = {
       ...form,
-      user_id: user?.id,
+      user_id: user?.id ?? null,
     }
 
     let result
