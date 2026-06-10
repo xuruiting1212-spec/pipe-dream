@@ -124,20 +124,31 @@ export const usePostsStore = defineStore('posts', () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       const userId: string | null = user?.id ? String(user.id) : null
-      const postData = { ...form, user_id: userId }
+      const postData: Record<string, unknown> = {
+        title: form.title,
+        content: form.content,
+        type: form.type,
+        subtype: form.subtype,
+        tags: form.tags,
+        visibility: form.visibility,
+        images: form.images,
+        video: form.video,
+        is_draft: form.is_draft,
+        user_id: userId,
+      }
 
       let result
       if (postId) {
         result = await supabase
           .from('posts')
-          .update(postData)
+          .update(postData as any)
           .eq('id', postId)
           .select()
           .single()
       } else {
         result = await supabase
           .from('posts')
-          .insert(postData)
+          .insert(postData as any)
           .select()
           .single()
       }

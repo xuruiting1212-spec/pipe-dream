@@ -1,5 +1,6 @@
 // Supabase 数据库类型定义
 // 对应 posts 表结构
+// Supabase JS v2 要求每个 Table 包含 Row/Insert/Update/Relationships
 
 export interface Database {
   public: {
@@ -46,10 +47,13 @@ export interface Database {
           is_draft?: boolean
           user_id?: string | null
         }
+        // Supabase JS v2 必需字段，否则 TS 推导为 never
+        Relationships: []
       }
     }
-    Views: {}
-    Functions: {}
-    Enums: {}
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
