@@ -1,0 +1,151 @@
+/* Tailwind CSS 指令 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 全局基础样式 ===== */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* 自定义滚动条 */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #e1bee7;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ce93d8;
+  }
+}
+
+/* ===== 自定义组件样式 ===== */
+@layer components {
+  /* 梦幻卡片 */
+  .dream-card {
+    @apply backdrop-blur-sm rounded-dream shadow-dream
+           border transition-all duration-300;
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 0.6);
+  }
+  .dream-card:hover {
+    @apply shadow-dream-lg -translate-y-1;
+  }
+
+  /* 梦幻按钮 */
+  .dream-btn {
+    @apply px-6 py-3 rounded-full font-medium
+           transition-all duration-300
+           active:scale-95;
+  }
+  .dream-btn-primary {
+    @apply dream-btn
+           bg-gradient-to-r from-dream-500 to-purple-500
+           text-white shadow-dream
+           hover:shadow-dream-lg hover:from-dream-600 hover:to-purple-600;
+  }
+  .dream-btn-ghost {
+    @apply dream-btn text-dream-700;
+    background: rgba(233, 30, 99, 0.08);
+  }
+  .dream-btn-ghost:hover {
+    background: rgba(233, 30, 99, 0.15);
+  }
+
+  /* 输入框 */
+  .dream-input {
+    @apply w-full px-4 py-3 rounded-dream-sm
+           backdrop-blur-sm
+           border border-dream-100
+           text-gray-700 placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-dream-300 focus:border-transparent
+           transition-all duration-300;
+    background: rgba(255, 255, 255, 0.8);
+  }
+
+  /* 标签 */
+  .dream-tag {
+    @apply inline-block px-3 py-1 rounded-full text-xs font-medium
+           bg-dream-500/10 text-dream-700
+           transition-colors duration-200;
+  }
+
+  /* Markdown 渲染内容样式 */
+  .markdown-body {
+    @apply text-gray-700 leading-relaxed;
+  }
+  .markdown-body h1 { @apply text-2xl font-bold text-gray-900 mt-6 mb-3; }
+  .markdown-body h2 { @apply text-xl font-bold text-gray-900 mt-5 mb-2; }
+  .markdown-body h3 { @apply text-lg font-semibold text-gray-900 mt-4 mb-2; }
+  .markdown-body p { @apply mb-3; }
+  .markdown-body ul, .markdown-body ol { @apply mb-3 pl-6; }
+  .markdown-body ul { @apply list-disc; }
+  .markdown-body ol { @apply list-decimal; }
+  .markdown-body blockquote {
+    @apply border-l-4 border-dream-300 pl-4 py-1 my-3 text-gray-600 italic bg-dream-50/50 rounded-r-lg;
+  }
+  .markdown-body code {
+    @apply bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded text-sm font-mono;
+  }
+  .markdown-body pre {
+    @apply bg-gray-900 text-gray-100 p-4 rounded-dream-sm my-3 overflow-x-auto;
+  }
+  .markdown-body pre code {
+    @apply bg-transparent text-gray-100 px-0 py-0;
+  }
+  .markdown-body a {
+    @apply text-dream-600 underline hover:text-dream-700;
+  }
+  .markdown-body img {
+    @apply max-w-full rounded-dream-sm my-3;
+    /* 图片不压缩，保持原始清晰度 */
+    image-rendering: auto;
+  }
+  .markdown-body table {
+    @apply w-full border-collapse my-3;
+  }
+  .markdown-body th, .markdown-body td {
+    @apply border border-dream-100 px-3 py-2 text-left;
+  }
+  .markdown-body th {
+    @apply bg-dream-50 font-medium;
+  }
+}
+
+/* ===== 动画工具类 ===== */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== 移动端优化 ===== */
+@media (max-width: 767px) {
+  .dream-card:hover {
+    transform: none; /* 手机端取消悬浮位移 */
+  }
+}
