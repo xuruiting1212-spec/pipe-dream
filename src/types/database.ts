@@ -1,28 +1,16 @@
-// Supabase 数据库类型定义
 export interface Database {
   public: {
     Tables: {
       posts: {
-        Row: {
-          id: string; created_at: string; title: string; content: string
-          type: string; subtype: string | null; tags: string[]
-          visibility: string; images: string[]; video: string | null
-          is_draft: boolean; user_id: string | null; deleted_at: string | null
-        }
-        Insert: {
-          id?: string; created_at?: string; title: string; content: string
-          type: string; subtype?: string | null; tags?: string[]
-          visibility?: string; images?: string[]; video?: string | null
-          is_draft?: boolean; user_id?: string | null; deleted_at?: string | null
-        }
-        Update: {
-          id?: string; title?: string; content?: string
-          type?: string; subtype?: string | null; tags?: string[]
-          visibility?: string; images?: string[]; video?: string | null
-          is_draft?: boolean; user_id?: string | null; deleted_at?: string | null
-        }
+        Row: { id:string;created_at:string;title:string;content:string;type:string;subtype:string|null;tags:string[];visibility:string;images:string[];video:string|null;is_draft:boolean;user_id:string|null;deleted_at:string|null;author_type:string }
+        Insert: { id?:string;created_at?:string;title:string;content:string;type:string;subtype?:string|null;tags?:string[];visibility?:string;images?:string[];video?:string|null;is_draft?:boolean;user_id?:string|null;deleted_at?:string|null;author_type?:string }
+        Update: { id?:string;title?:string;content?:string;type?:string;subtype?:string|null;tags?:string[];visibility?:string;images?:string[];video?:string|null;is_draft?:boolean;user_id?:string|null;deleted_at?:string|null;author_type?:string }
         Relationships: []
       }
+      towa_profile: { Row:{id:string;name:string;bio:string;avatar_url:string|null;cover_url:string|null}; Insert:{id?:string;name?:string;bio?:string;avatar_url?:string|null;cover_url?:string|null}; Update:{name?:string;bio?:string;avatar_url?:string|null;cover_url?:string|null}; Relationships:[] }
+      moods: { Row:{id:string;user_id:string;date:string;my_mood:string|null;towa_mood:string|null}; Insert:{id?:string;user_id?:string;date:string;my_mood?:string|null;towa_mood?:string|null}; Update:{my_mood?:string|null;towa_mood?:string|null}; Relationships:[] }
+      canvas_items: { Row:{id:string;user_id:string;type:string;content:string;pos_x:number;pos_y:number;width:number;height:number;rotation:number;color?:string;font_size?:number}; Insert:{id?:string;user_id?:string;type:string;content:string;pos_x?:number;pos_y?:number;width?:number;height?:number;rotation?:number;color?:string;font_size?:number}; Update:{content?:string;pos_x?:number;pos_y?:number;width?:number;height?:number;rotation?:number;color?:string;font_size?:number}; Relationships:[] }
+      sketchbook: { Row:{id:string;user_id:string;title:string;content:string;tags:string[];images:string[];video:string|null;visibility:string;is_draft:boolean;deleted_at:string|null;created_at:string}; Insert:{id?:string;user_id?:string;title:string;content:string;tags?:string[];images?:string[];video?:string|null;visibility?:string;is_draft?:boolean;deleted_at?:string|null}; Update:{title?:string;content?:string;tags?:string[];images?:string[];video?:string|null;visibility?:string;is_draft?:boolean;deleted_at?:string|null}; Relationships:[] }
     }
     Views: Record<string, never>
     Functions: Record<string, never>

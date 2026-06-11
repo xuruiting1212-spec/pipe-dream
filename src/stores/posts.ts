@@ -15,6 +15,9 @@ export const usePostsStore = defineStore('posts', () => {
   const filteredPosts = computed(() => {
     let result = posts.value.filter(p => !p.deleted_at && !p.is_draft)
 
+    if (filter.value.author && filter.value.author !== 'all') {
+      result = result.filter(p => p.author_type === filter.value.author)
+    }
     if (filter.value.types.length > 0) {
       result = result.filter(p => filter.value.types.includes(p.type as any))
     }
@@ -97,7 +100,8 @@ export const usePostsStore = defineStore('posts', () => {
       const postData: Record<string, unknown> = {
         title: form.title, content: form.content, type: form.type,
         subtype: form.subtype, tags: form.tags, visibility: form.visibility,
-        images: form.images, video: form.video, is_draft: form.is_draft, user_id: userId,
+        images: form.images, video: form.video, is_draft: form.is_draft,
+        user_id: userId, author_type: form.author_type || 'me',
       }
 
       let result

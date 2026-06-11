@@ -1,4 +1,4 @@
-<!-- HomeView — 首面：时间线总览（所有发布按时间排列）+ 多选分类筛选 -->
+<!-- HomeView — 时间线总览：所有发布（me + towa）按时间排列 + 多选分类筛选 -->
 <template>
   <div>
     <TopBar />

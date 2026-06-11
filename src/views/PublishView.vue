@@ -195,6 +195,7 @@ const form = reactive<PostForm>({
   images: [],
   video: null,
   is_draft: false,
+  author_type: 'me',
 })
 
 /** 选择类型 */

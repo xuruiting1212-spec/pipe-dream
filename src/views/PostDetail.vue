@@ -36,15 +36,12 @@
         <video :src="post.video" controls class="w-full rounded-dream shadow-dream" preload="metadata">不支持视频播放</video>
       </div>
 
-      <!-- 图片区：点击放大看原图 -->
-      <div v-if="post.images?.length" class="mb-8">
-        <div :class="post.images.length === 1 ? 'space-y-0' : 'grid grid-cols-2 gap-2'">
-          <img v-for="(img, idx) in post.images" :key="idx" :src="img"
-            class="rounded-dream shadow-dream-sm cursor-pointer hover:opacity-90 transition-opacity w-full"
-            :class="{ 'col-span-2': post.images.length % 2 === 1 && idx === 0 && post.images.length > 1 }"
-            style="image-rendering: auto; max-height: 80vh; object-fit: contain;"
-            loading="lazy" @click="openLightbox(idx)" />
-        </div>
+      <!-- 图片区：宽图/长图从上到下滚动 -->
+      <div v-if="post.images?.length" class="mb-8 -mx-4 md:mx-0">
+        <img v-for="(img, idx) in post.images" :key="idx" :src="img"
+          class="w-full cursor-pointer hover:opacity-95 transition-opacity"
+          style="image-rendering: auto; max-height: none; object-fit: contain; display: block;"
+          loading="lazy" @click="openLightbox(idx)" />
       </div>
 
       <!-- Markdown 正文 -->

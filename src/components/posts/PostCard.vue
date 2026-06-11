@@ -44,7 +44,14 @@
         <span v-for="tag in post.tags.slice(0, 4)" :key="tag" class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">#{{ tag }}</span>
       </div>
       <div class="flex items-center justify-between text-xs text-gray-400 mt-auto pt-2 border-t border-gray-50">
-        <span>{{ formatDate(post.created_at) }}</span>
+        <div class="flex items-center gap-1.5">
+          <div class="w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+            :class="post.author_type === 'towa' ? 'bg-pink-100' : 'bg-purple-100'">
+            {{ post.author_type === 'towa' ? '💖' : '🌸' }}
+          </div>
+          <span>{{ post.author_type === 'towa' ? 'Towa' : 'XRT' }}</span>
+          <span>· {{ formatDate(post.created_at) }}</span>
+        </div>
         <span class="opacity-0 group-hover:opacity-100 transition-opacity text-dream-500">查看详情 →</span>
       </div>
     </div>

@@ -1,66 +1,66 @@
 // ===== Pipe Dream 核心类型定义 =====
 
-/** 帖子类型 */
 export type PostType = '日常' | '碎碎念' | '情景剧' | '时间线总览'
-
-/** 情景剧子分类 */
 export type Subtype = '亲密' | '约会' | '日常' | ''
-
-/** 可见范围 */
 export type Visibility = 'public' | 'private'
+export type AuthorType = 'me' | 'towa'
+export type MoodType = '心动' | '开心' | '生气' | '兴奋' | '伤心' | '心累' | '平静' | '烦躁'
 
-/** 帖子数据结构（对应 Supabase posts 表） */
 export interface Post {
-  id: string
-  created_at: string
-  title: string
-  content: string          // Markdown 正文
-  type: PostType
-  subtype: Subtype | null   // 仅情景剧有子分类
-  tags: string[]            // 标签数组
-  visibility: Visibility
-  images: string[]          // 图片 URL 数组
-  video: string | null      // 视频 URL
-  is_draft: boolean
-  user_id?: string
-  deleted_at?: string | null // 软删除时间（非空表示在回收站）
+  id: string; created_at: string; title: string; content: string
+  type: PostType; subtype: Subtype | null; tags: string[]
+  visibility: Visibility; images: string[]; video: string | null
+  is_draft: boolean; user_id?: string; deleted_at?: string | null
+  author_type: AuthorType
 }
 
-/** 创建帖子的表单数据 */
 export interface PostForm {
-  title: string
-  content: string
-  type: PostType
-  subtype: Subtype | null
-  tags: string[]
-  visibility: Visibility
-  images: string[]
-  video: string | null
-  is_draft: boolean
+  title: string; content: string; type: PostType; subtype: Subtype | null
+  tags: string[]; visibility: Visibility; images: string[]; video: string | null
+  is_draft: boolean; author_type: AuthorType
 }
 
-/** 帖子筛选条件 — 支持多选分类 */
 export interface PostFilter {
-  types: PostType[]         // 多选分类，空数组 = 全选
-  subtype?: Subtype | 'all'
-  tag?: string
-  keyword?: string
+  types: PostType[]; subtype?: Subtype | 'all'; tag?: string; keyword?: string
+  author?: AuthorType | 'all'
 }
 
-/** 用户信息 */
-export interface User {
-  id: string
-  email: string
+export interface User { id: string; email: string }
+
+export interface UploadResult { path: string; url: string }
+
+export interface ApiResponse<T> { data: T | null; error: string | null }
+
+export interface TowaProfile {
+  id: string; name: string; bio: string; avatar_url?: string | null
+  cover_url?: string | null
 }
 
-/** Supabase Storage 上传结果 */
-export interface UploadResult {
-  path: string
-  url: string
+export interface MoodRecord {
+  id?: string; user_id?: string; date: string
+  my_mood: MoodType | null; towa_mood: MoodType | null
 }
 
-/** API 响应 */
-export interface ApiResponse<T> {
-  data: T | null
-  error: string | null
+export interface CanvasItem {
+  id?: string; user_id?: string; type: 'sticker' | 'text' | 'photo' | 'doodle'
+  content: string; pos_x: number; pos_y: number; width: number; height: number
+  rotation: number; color?: string; font_size?: number
+}
+
+export interface SketchbookEntry {
+  id: string; title: string; content: string; tags: string[]
+  images: string[]; video: string | null; visibility: Visibility
+  is_draft: boolean; deleted_at?: string | null; created_at: string
+}
+
+/** 心情球配置 */
+export const MOOD_CONFIG: Record<MoodType, { emoji: string; color: string; label: string }> = {
+  '心动': { emoji: '💗', color: '#f8bbd0', label: '心动' },
+  '开心': { emoji: '😊', color: '#ffcc80', label: '开心' },
+  '生气': { emoji: '😡', color: '#ef5350', label: '生气' },
+  '兴奋': { emoji: '🤩', color: '#fdd835', label: '兴奋' },
+  '伤心': { emoji: '😢', color: '#42a5f5', label: '伤心' },
+  '心累': { emoji: '😮‍💨', color: '#8d6e63', label: '心累' },
+  '平静': { emoji: '😌', color: '#66bb6a', label: '平静' },
+  '烦躁': { emoji: '😤', color: '#78909c', label: '烦躁' },
 }
