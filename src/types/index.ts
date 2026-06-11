@@ -22,7 +22,8 @@ export interface Post {
   images: string[]          // 图片 URL 数组
   video: string | null      // 视频 URL
   is_draft: boolean
-  user_id?: string          // 关联的 Supabase Auth 用户 ID
+  user_id?: string
+  deleted_at?: string | null // 软删除时间（非空表示在回收站）
 }
 
 /** 创建帖子的表单数据 */
@@ -38,13 +39,12 @@ export interface PostForm {
   is_draft: boolean
 }
 
-/** 帖子筛选条件 */
+/** 帖子筛选条件 — 支持多选分类 */
 export interface PostFilter {
-  type?: PostType | 'all'
+  types: PostType[]         // 多选分类，空数组 = 全选
   subtype?: Subtype | 'all'
   tag?: string
-  keyword?: string          // 搜索标题和正文
-  visibility?: Visibility | 'all'
+  keyword?: string
 }
 
 /** 用户信息 */

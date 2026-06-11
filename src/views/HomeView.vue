@@ -1,22 +1,9 @@
-<!--
-  ===== HomeView — 主页 =====
-  访客/登录用户共用，默认展示公开帖子
-  支持分类筛选、标签筛选、关键词搜索
--->
-
+<!-- HomeView — 首面：时间线总览（所有发布按时间排列）+ 多选分类筛选 -->
 <template>
   <div>
-    <!-- 顶部标题栏 + 搜索 -->
     <TopBar />
-
-    <!-- 分类筛选标签 -->
     <PostFilter />
-
-    <!-- 帖子网格 -->
-    <PostGrid
-      :posts="postsStore.filteredPosts"
-      :loading="postsStore.loading"
-    />
+    <PostGrid :posts="postsStore.filteredPosts" :loading="postsStore.loading" />
   </div>
 </template>
 
@@ -33,37 +20,26 @@ const postsStore = usePostsStore()
 const authStore = useAuthStore()
 const route = useRoute()
 
-/**
- * 加载帖子
- * - 已登录用户：加载全部帖子
- * - 访客：只加载公开帖子
- */
 async function loadPosts(): Promise<void> {
   await postsStore.fetchPosts(authStore.isLoggedIn)
 }
 
-/** 根据 URL 参数应用筛选 */
 function applyUrlFilter(): void {
   const { type, subtype, keyword } = route.query
+  const types: any[] = []
+  if (type === '日常') types.push('日常')
+  else if (type === '碎碎念') types.push('碎碎念')
+  else if (type === '情景剧') types.push('情景剧')
+  /// else if type not set or invalid, types stays empty = show all
+
   postsStore.setFilter({
-    type: (type as string) || 'all',
+    types,
     subtype: (subtype as string) || undefined,
     keyword: (keyword as string) || '',
   } as any)
 }
 
-onMounted(async () => {
-  applyUrlFilter()
-  await loadPosts()
-})
-
-// 监听登录状态变化
-watch(() => authStore.isLoggedIn, () => {
-  loadPosts()
-})
-
-// 监听路由 query 变化
-watch(() => route.query, () => {
-  applyUrlFilter()
-})
+onMounted(async () => { applyUrlFilter(); await loadPosts() })
+watch(() => authStore.isLoggedIn, () => loadPosts())
+watch(() => route.query, () => applyUrlFilter())
 </script>
