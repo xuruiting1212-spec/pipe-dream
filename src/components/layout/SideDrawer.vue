@@ -39,6 +39,7 @@
           <span class="ml-auto transition-transform duration-300" :class="{ 'rotate-180': uiStore.publishMenuOpen }">▾</span>
         </button>
         <div v-if="uiStore.publishMenuOpen" class="ml-8 mt-2 flex flex-col gap-1.5 animate-fade-in">
+          <button @click="nav('/?timeline=true'); uiStore.closeSidebar()" class="text-sm text-gray-600 hover:text-dream-600 py-1.5 px-3 rounded-lg hover:bg-dream-50 transition-colors text-left">🕐 时间线总览</button>
           <button @click="nav('/?type=日常')" class="text-sm text-gray-600 hover:text-dream-600 py-1.5 px-3 rounded-lg hover:bg-dream-50 transition-colors text-left">🌸 日常</button>
           <button @click="nav('/?type=碎碎念')" class="text-sm text-gray-600 hover:text-dream-600 py-1.5 px-3 rounded-lg hover:bg-dream-50 transition-colors text-left">💭 碎碎念</button>
           <div>
@@ -54,15 +55,15 @@
         </div>
       </div>
 
-      <!-- Towa的发布（新板块） -->
-      <button @click="nav('/towa')" class="dream-btn-ghost text-left flex items-center gap-3">
-        <span class="text-lg">💖</span><span>Towa的发布</span>
-        <span class="ml-auto text-[10px] bg-purple-100 text-purple-500 px-2 py-0.5 rounded-full">新</span>
-      </button>
-
       <!-- 私有物 -->
       <button @click="nav('/private')" class="dream-btn-ghost text-left flex items-center gap-3">
         <span class="text-lg">🔒</span><span>私有物</span>
+      </button>
+
+      <!-- Towa的发布（新板块，内容待定） -->
+      <button @click="nav('/towa')" class="dream-btn-ghost text-left flex items-center gap-3">
+        <span class="text-lg">💖</span><span>Towa的发布</span>
+        <span class="ml-auto text-[10px] bg-purple-100 text-purple-500 px-2 py-0.5 rounded-full">新</span>
       </button>
 
       <!-- 回收站 -->

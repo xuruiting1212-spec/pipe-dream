@@ -12,7 +12,7 @@ const router = createRouter({
     { path: '/drafts', name: 'drafts', component: () => import('@/views/DraftsView.vue'), meta: { title: '草稿箱 — Pipe Dream', requiresAuth: true } },
     { path: '/private', name: 'private', component: () => import('@/views/PrivateView.vue'), meta: { title: '私有物 — Pipe Dream', requiresAuth: true } },
     { path: '/trash', name: 'trash', component: () => import('@/views/TrashView.vue'), meta: { title: '最近删除 — Pipe Dream', requiresAuth: true } },
-    { path: '/towa', name: 'towa', component: () => import('@/views/HomeView.vue'), meta: { title: 'Towa的发布 — Pipe Dream' } },
+    { path: '/towa', name: 'towa', component: () => import('@/views/TowaView.vue'), meta: { title: 'Towa的发布 — Pipe Dream' } },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/HomeView.vue'), meta: { title: 'Pipe Dream' } },
   ],
   scrollBehavior() { return { top: 0 } },
