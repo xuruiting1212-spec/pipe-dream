@@ -62,7 +62,16 @@ export const useAuthStore = defineStore('auth', () => {
         password,
       })
       if (err) {
-        error.value = err.message
+        // 区分不同错误类型给出友好提示
+        if (err.message.includes('Invalid login credentials')) {
+          error.value = '邮箱或密码错误，请检查'
+        } else if (err.message.includes('Email not confirmed')) {
+          error.value = '邮箱未验证，请在 Supabase 后台确认用户'
+        } else if (err.message.includes('fetch')) {
+          error.value = '无法连接到服务器，请检查 Supabase 项目是否处于活跃状态'
+        } else {
+          error.value = err.message
+        }
         return false
       }
       if (data.user) {
@@ -74,8 +83,13 @@ export const useAuthStore = defineStore('auth', () => {
       }
       error.value = '登录失败，请重试'
       return false
-    } catch (e) {
-      error.value = '登录异常，请稍后再试'
+    } catch (e: any) {
+      console.error('登录异常:', e)
+      if (e?.message?.includes('fetch') || e?.name === 'TypeError') {
+        error.value = '网络连接失败（Failed to fetch）。请检查：\n1. Supabase 项目是否暂停（免费版 7 天不用会暂停）\n2. 项目 URL 是否正确'
+      } else {
+        error.value = '登录异常: ' + (e?.message || '未知错误')
+      }
       return false
     } finally {
       loading.value = false

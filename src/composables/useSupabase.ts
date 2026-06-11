@@ -20,6 +20,17 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     persistSession: true,           // 持久化登录状态
     autoRefreshToken: true,         // 自动刷新 token
     detectSessionInUrl: true,       // 从 URL 检测 OAuth 回调
+    // 生产环境关键配置：避免 Vercel 部署时的重定向问题
+    flowType: 'pkce',
+  },
+  global: {
+    // 生产环境调试：捕获所有请求错误
+    fetch: (...args) => {
+      return fetch(...args).catch((err) => {
+        console.error('[Supabase] 网络请求失败:', err)
+        throw err
+      })
+    },
   },
 })
 

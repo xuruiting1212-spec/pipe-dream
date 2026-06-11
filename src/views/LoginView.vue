@@ -48,7 +48,7 @@
           <!-- 错误提示 -->
           <div
             v-if="authStore.error"
-            class="text-sm text-red-500 bg-red-50 rounded-dream-sm px-3 py-2"
+            class="text-sm text-red-500 bg-red-50 rounded-dream-sm px-3 py-2 whitespace-pre-wrap text-left"
           >
             ❌ {{ authStore.error }}
           </div>
