@@ -4,40 +4,30 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+// 直接定义正确的值，避免 Vercel 环境变量 BOM 编码问题
+// anon key 是公开的客户端 key，硬编码是安全的
+const SUPABASE_URL = 'https://rilzinllsxwiqodaqbah.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_2M0rqDO1YCoYmxlYlefpiA_-yS9e4et'
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ 请在 .env 文件中配置 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY')
-}
+// 启动诊断日志
+console.log('[Supabase] URL:', SUPABASE_URL)
+console.log('[Supabase] Key 前缀:', SUPABASE_ANON_KEY.substring(0, 20))
 
 /**
  * Supabase 客户端单例
- * 使用 anon key 初始化，配合 RLS 策略控制数据访问权限
  */
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    persistSession: true,           // 持久化登录状态
-    autoRefreshToken: true,         // 自动刷新 token
-    detectSessionInUrl: true,       // 从 URL 检测 OAuth 回调
-    // 生产环境关键配置：避免 Vercel 部署时的重定向问题
-    flowType: 'pkce',
-  },
-  global: {
-    // 生产环境调试：捕获所有请求错误
-    fetch: (...args) => {
-      return fetch(...args).catch((err) => {
-        console.error('[Supabase] 网络请求失败:', err)
-        throw err
-      })
-    },
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
   },
 })
 
+console.log('[Supabase] 客户端就绪')
+
 /**
  * 获取 Supabase Storage 的公开 URL
- * @param bucket - 存储桶名称
- * @param path - 文件路径
  */
 export function getPublicUrl(bucket: string, path: string): string {
   const { data } = supabase.storage.from(bucket).getPublicUrl(path)

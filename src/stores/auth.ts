@@ -84,12 +84,10 @@ export const useAuthStore = defineStore('auth', () => {
       error.value = '登录失败，请重试'
       return false
     } catch (e: any) {
-      console.error('登录异常:', e)
-      if (e?.message?.includes('fetch') || e?.name === 'TypeError') {
-        error.value = '网络连接失败（Failed to fetch）。请检查：\n1. Supabase 项目是否暂停（免费版 7 天不用会暂停）\n2. 项目 URL 是否正确'
-      } else {
-        error.value = '登录异常: ' + (e?.message || '未知错误')
-      }
+      console.error('[Auth] 登录异常 — 完整错误:', e)
+      console.error('[Auth] 错误消息:', e?.message)
+      console.error('[Auth] 错误类型:', e?.name)
+      error.value = '网络错误: ' + (e?.message || String(e))
       return false
     } finally {
       loading.value = false
