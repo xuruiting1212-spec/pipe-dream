@@ -12,8 +12,8 @@
           <div class="h-24 bg-gradient-to-r from-pink-300 via-purple-300 to-blue-300 relative">
             <button v-if="authStore.isLoggedIn" @click="editingCard = true" class="absolute top-2 right-2 text-xs bg-white/70 px-2 py-1 rounded-full hover:bg-white">✏️</button>
           </div>
-          <div class="px-4 pb-4 -mt-8 text-center">
-            <div class="w-16 h-16 mx-auto rounded-full bg-purple-200 border-4 border-white shadow flex items-center justify-center text-2xl overflow-hidden">
+          <div class="px-4 pb-4 -mt-8 text-center relative z-10">
+            <div class="w-16 h-16 mx-auto rounded-full bg-purple-200 border-4 border-white shadow flex items-center justify-center text-2xl overflow-hidden bg-white">
               <img v-if="profile.avatar_url" :src="profile.avatar_url" class="w-full h-full object-cover" />
               <span v-else>🌸</span>
             </div>
@@ -27,12 +27,25 @@
           <button v-if="authStore.isLoggedIn" @click="showCalendar = !showCalendar" class="absolute top-3 right-3 text-lg" title="日历">📅</button>
           <div class="text-xs text-gray-400 mb-2">{{ currentMonthLabel }} 心情瓶</div>
           <div @click="showMoodPopup = true" class="cursor-pointer hover:scale-105 transition-transform">
-            <div class="relative mx-auto w-24 h-32">
-              <svg viewBox="0 0 100 140" class="w-full h-full">
-                <path d="M20 40 Q20 100 50 120 Q80 100 80 40 L85 15 Q50 5 15 15 Z" fill="#e8e0f0" stroke="#ccc" stroke-width="1.5" />
+            <div class="relative mx-auto" style="width:130px; height:180px;">
+              <svg viewBox="0 0 130 180" class="w-full h-full">
+                <!-- 瓶口（圆形敞口） -->
+                <ellipse cx="65" cy="8" rx="40" ry="8" fill="#e8e0f0" stroke="#bbb" stroke-width="1.5" />
+                <!-- 瓶颈（略微收窄） -->
+                <path d="M25 8 Q30 25 35 40 L95 40 Q100 25 105 8" fill="#e8e0f0" stroke="#bbb" stroke-width="1.5" />
+                <!-- 瓶身（大圆柱形） -->
+                <rect x="30" y="40" width="70" height="115" rx="5" fill="#e8e0f0" stroke="#bbb" stroke-width="1.5" />
+                <!-- 瓶底（平底圆弧） -->
+                <path d="M30 155 Q65 165 100 155" fill="#e8e0f0" stroke="#bbb" stroke-width="1.5" />
+                <!-- 瓶口顶部高光 -->
+                <ellipse cx="65" cy="8" rx="30" ry="5" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" />
+                <!-- 瓶身高光反射 -->
+                <rect x="38" y="45" width="8" height="100" rx="4" fill="rgba(255,255,255,0.3)" />
               </svg>
-              <div class="absolute inset-0 flex flex-wrap items-end justify-center pb-6 px-2 gap-0.5 content-end overflow-hidden" style="bottom:10px">
-                <span v-for="(m, i) in jarMoods" :key="i" class="text-xs leading-none">{{ getMood(m)?.emoji || '🔮' }}</span>
+              <!-- 瓶内心情球堆叠 -->
+              <div class="absolute flex flex-wrap items-end justify-center content-end gap-0.5 overflow-hidden"
+                style="left:34px; right:34px; bottom:16px; top:44px;">
+                <span v-for="(m, i) in jarMoods" :key="i" class="text-[10px] leading-none drop-shadow-sm">{{ getMood(m)?.emoji || '🔮' }}</span>
               </div>
             </div>
           </div>
