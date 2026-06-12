@@ -92,8 +92,8 @@ import { useAuthStore } from '@/stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const email = ref('xuruiting1212@me.com')
-const password = ref('towa520')
+const email = ref('')
+const password = ref('')
 
 /** 处理登录 */
 async function handleLogin(): Promise<void> {

@@ -35,16 +35,20 @@
       <nav
         class="md:hidden fixed bottom-0 left-0 right-0 z-40
                bg-white/90 backdrop-blur-md border-t border-dream-100
-               flex items-center justify-around py-2 px-4"
+               flex items-center justify-around py-2 px-4 rounded-t-2xl"
         style="padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));"
       >
-        <button @click="router.push('/')" class="flex flex-col items-center gap-1 p-2 text-dream-600">
-          <span class="text-xl">🏠</span>
-          <span class="text-[10px]">首页</span>
+        <button @click="router.push('/')" class="flex flex-col items-center gap-1 p-2 transition-colors relative"
+          :class="isActive('/') ? 'text-dream-600' : 'text-gray-400'">
+          <span v-if="isActive('/')" class="absolute inset-0 bg-dream-500/10 rounded-2xl -z-0"></span>
+          <span class="text-xl relative z-10">🏠</span>
+          <span class="text-[10px] relative z-10">首页</span>
         </button>
-        <button @click="uiStore.toggleSidebar()" class="flex flex-col items-center gap-1 p-2 text-dream-600">
-          <span class="text-xl">📂</span>
-          <span class="text-[10px]">菜单</span>
+        <button @click="router.push('/canvas')" class="flex flex-col items-center gap-1 p-2 transition-colors relative"
+          :class="isActive('/canvas') ? 'text-dream-600' : 'text-gray-400'">
+          <span v-if="isActive('/canvas')" class="absolute inset-0 bg-dream-500/10 rounded-2xl -z-0"></span>
+          <span class="text-xl relative z-10">🎨</span>
+          <span class="text-[10px] relative z-10">画板</span>
         </button>
         <button
           v-if="authStore.isLoggedIn"
@@ -56,13 +60,17 @@
           <span class="text-2xl">➕</span>
           <span class="text-[10px]">发布</span>
         </button>
-        <button v-else @click="router.push('/login')" class="flex flex-col items-center gap-1 p-2 text-dream-600">
-          <span class="text-xl">🔑</span>
-          <span class="text-[10px]">登录</span>
+        <button v-else @click="router.push('/login')" class="flex flex-col items-center gap-1 p-2 transition-colors relative"
+          :class="isActive('/login') ? 'text-dream-600' : 'text-gray-400'">
+          <span v-if="isActive('/login')" class="absolute inset-0 bg-dream-500/10 rounded-2xl -z-0"></span>
+          <span class="text-xl relative z-10">🔑</span>
+          <span class="text-[10px] relative z-10">登录</span>
         </button>
-        <button @click="router.push('/')" class="flex flex-col items-center gap-1 p-2 text-dream-600">
-          <span class="text-xl">🔍</span>
-          <span class="text-[10px]">搜索</span>
+        <button @click="uiStore.toggleSidebar()" class="flex flex-col items-center gap-1 p-2 transition-colors relative"
+          :class="uiStore.sidebarOpen ? 'text-dream-600' : 'text-gray-400'">
+          <span v-if="uiStore.sidebarOpen" class="absolute inset-0 bg-dream-500/10 rounded-2xl -z-0"></span>
+          <span class="text-xl relative z-10">📂</span>
+          <span class="text-[10px] relative z-10">菜单</span>
         </button>
       </nav>
     </div>
@@ -79,6 +87,10 @@ import SideDrawer from '@/components/layout/SideDrawer.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
+
+function isActive(path: string): boolean {
+  return router.currentRoute.value.path === path
+}
 
 onMounted(async () => {
   await authStore.init()
