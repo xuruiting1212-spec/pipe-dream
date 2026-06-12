@@ -20,12 +20,22 @@
     <!-- 主布局 -->
     <div v-else class="flex min-h-screen max-w-[1600px] mx-auto relative">
       <!-- ===== 左侧主内容区 ===== -->
-      <main class="flex-1 min-w-0 p-4 md:p-6 lg:p-8 pb-20 md:pb-8">
-        <router-view v-slot="{ Component, route }">
-          <transition name="page" mode="out-in">
-            <component :is="Component" :key="route.path" />
-          </transition>
-        </router-view>
+      <main class="flex-1 min-w-0 p-4 md:p-6 lg:p-8 pb-20 md:pb-8 relative">
+        <!-- 主区装饰渐变叠加（顶部→向下淡出） -->
+        <div v-if="mainDecoBg" class="absolute top-0 left-0 right-0 pointer-events-none z-0" style="height:50%;">
+          <div :style="{
+            width:'100%', height:'100%',
+            background: `linear-gradient(to bottom, rgba(252,228,236,0.5) 0%, rgba(252,228,236,0.05) 60%, transparent 100%), url(${mainDecoBg})`,
+            backgroundSize: 'cover', backgroundPosition: 'center top', opacity: 0.45,
+          }" />
+        </div>
+        <div class="relative z-10">
+          <router-view v-slot="{ Component, route }">
+            <transition name="page" mode="out-in">
+              <component :is="Component" :key="route.path" />
+            </transition>
+          </router-view>
+        </div>
       </main>
 
       <!-- ===== 右侧侧拉栏 ===== -->
@@ -79,21 +89,31 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
+import { supabase } from '@/composables/useSupabase'
 import SideDrawer from '@/components/layout/SideDrawer.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const uiStore = useUiStore()
 
+const mainDecoBg = ref('')
+
 function isActive(path: string): boolean {
   return router.currentRoute.value.path === path
 }
 
+async function loadMainDeco() {
+  const { data } = await supabase.from('profiles').select('main_deco_thumb,main_deco_url').eq('profile_type','side').limit(1).single()
+  if (data) { const d = data as any; mainDecoBg.value = d.main_deco_thumb || d.main_deco_url || '' }
+}
+
 onMounted(async () => {
   await authStore.init()
+  loadMainDeco()
 })
 </script>
 

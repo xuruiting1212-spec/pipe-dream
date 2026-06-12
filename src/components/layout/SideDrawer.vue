@@ -34,9 +34,21 @@
         </label>
 
         <!-- 背景上传 -->
-        <label class="flex items-center gap-2 text-sm text-gray-600 mb-4 cursor-pointer hover:text-dream-600 transition-colors">
+        <label class="flex items-center gap-2 text-sm text-gray-600 mb-3 cursor-pointer hover:text-dream-600 transition-colors">
           <span class="text-lg">🖼️</span><span>{{ profile.cover_url ? '✅ 已设背景（点此更换）' : '上传背景图 (2:1 横幅)' }}</span>
           <input type="file" accept="image/*" class="hidden" @change="handleCoverFile" />
+        </label>
+
+        <!-- 侧栏装饰图上传 -->
+        <label class="flex items-center gap-2 text-sm text-gray-600 mb-3 cursor-pointer hover:text-dream-600 transition-colors">
+          <span class="text-lg">🎀</span><span>{{ profile.sidebar_deco_url ? '✅ 已设侧栏装饰（点此更换）' : '上传侧栏装饰图 (16:9)' }}</span>
+          <input type="file" accept="image/*" class="hidden" @change="handleSideDecoFile" />
+        </label>
+
+        <!-- 主区装饰图上传 -->
+        <label class="flex items-center gap-2 text-sm text-gray-600 mb-4 cursor-pointer hover:text-dream-600 transition-colors">
+          <span class="text-lg">🏞️</span><span>{{ profile.main_deco_url ? '✅ 已设主区装饰（点此更换）' : '上传主区装饰图 (16:9)' }}</span>
+          <input type="file" accept="image/*" class="hidden" @change="handleMainDecoFile" />
         </label>
 
         <div class="flex gap-2">
@@ -88,7 +100,12 @@
       <button v-if="authStore.isLoggedIn" @click="nav('/trash')" class="dream-btn-ghost text-left flex items-center gap-3 text-sm"><span>🗑️</span>最近删除</button>
     </nav>
 
-    <div class="mt-auto pt-8 w-full">
+    <!-- 侧栏底部装饰渐变叠加 -->
+    <div v-if="profile.sidebar_deco_url" class="absolute bottom-0 left-0 right-0 pointer-events-none" style="height:40%; z-index:0;">
+      <div style="width:100%; height:100%; background: linear-gradient(to top, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.1) 50%, transparent 100%), url(v-bind('profile.sidebar_deco_thumb || profile.sidebar_deco_url')); background-size: cover; background-position: center bottom; opacity:0.5;" />
+    </div>
+
+    <div class="mt-auto pt-8 w-full relative z-10">
       <button v-if="authStore.isLoggedIn" @click="handleLogout" class="w-full text-xs text-gray-400 hover:text-dream-500 py-2">退出登录</button>
       <button v-else @click="nav('/login')" class="w-full text-xs text-gray-400 hover:text-dream-500 py-2">🔑 管理员登录</button>
     </div>
@@ -105,24 +122,25 @@ function nav(path: string): void { router.push(path); uiStore.closeSidebar() }
 async function handleLogout(): Promise<void> { await authStore.logout(); uiStore.closeSidebar() }
 
 const showEdit = ref(false)
-const profile = reactive({ name: 'XRT', bio: '✨ Pipe Dream · 白日梦收集者', avatar_url: '', cover_url: '' })
+const profile = reactive({ name: 'XRT', bio: '✨ Pipe Dream · 白日梦收集者', avatar_url: '', cover_url: '', sidebar_deco_url: '', sidebar_deco_thumb: '', main_deco_url: '', main_deco_thumb: '' })
 
 // 裁剪相关
 const cropSrc = ref(''); const cropTitle = ref(''); const cropRatio = ref(1); const cropHint = ref('')
-let cropTarget: 'avatar' | 'cover' = 'avatar'
+let cropTarget: string = 'avatar'
 
-function handleAvatarFile(e: Event) { pickFile(e, 'avatar') }
-function handleCoverFile(e: Event) { pickFile(e, 'cover') }
+function handleAvatarFile(e: Event) { pickFile(e, 'avatar', 1, '裁剪头像', '1:1 正方形') }
+function handleCoverFile(e: Event) { pickFile(e, 'cover', 2, '裁剪背景', '2:1 横幅') }
+function handleSideDecoFile(e: Event) { pickFile(e, 'sidebar_deco', 16/9, '侧栏装饰图', '16:9 横条') }
+function handleMainDecoFile(e: Event) { pickFile(e, 'main_deco', 16/9, '主区装饰图', '16:9 横条') }
 
-function pickFile(e: Event, target: 'avatar' | 'cover') {
+function pickFile(e: Event, target: string, ratio: number, title: string, hint: string) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]; if (!file) return
   const reader = new FileReader()
   reader.onload = () => {
     cropSrc.value = reader.result as string
     cropTarget = target
-    if (target === 'avatar') { cropTitle.value = '裁剪头像'; cropRatio.value = 1; cropHint.value = '1:1 正方形 · 拖拽移动 · 滚轮缩放' }
-    else { cropTitle.value = '裁剪背景'; cropRatio.value = 2; cropHint.value = '2:1 横幅 · 拖拽移动 · 滚轮缩放' }
+    cropTitle.value = title; cropRatio.value = ratio; cropHint.value = hint + ' · 拖拽移动 · 滚轮缩放'
   }
   reader.readAsDataURL(file)
   input.value = ''
@@ -130,24 +148,38 @@ function pickFile(e: Event, target: 'avatar' | 'cover') {
 
 async function onCropDone(blob: Blob) {
   cropSrc.value = ''
+  const isDeco = cropTarget === 'sidebar_deco' || cropTarget === 'main_deco'
+  const folder = isDeco ? 'decorations' : 'profiles'
   const file = new File([blob], `${cropTarget}-${Date.now()}.png`, { type: 'image/png' })
-  const { data, error } = await supabase.storage.from('posts-media').upload(`profiles/${file.name}`, file, { upsert: true })
+  const { data, error } = await supabase.storage.from('posts-media').upload(`${folder}/${file.name}`, file, { upsert: true })
   if (error) { alert('上传失败: ' + error.message); return }
   const { data: urlData } = supabase.storage.from('posts-media').getPublicUrl(data.path)
-  if (cropTarget === 'avatar') profile.avatar_url = urlData.publicUrl
-  else profile.cover_url = urlData.publicUrl
+  const fullUrl = urlData.publicUrl
+
+  // 装饰图额外生成缩略图
+  if (isDeco) {
+    const { makeThumb } = await import('@/composables/useThumbnail')
+    const thumbBlob = await makeThumb(blob, 500)
+    const thumbFile = new File([thumbBlob], `thumb-${cropTarget}-${Date.now()}.jpg`, { type: 'image/jpeg' })
+    const { data: tData } = await supabase.storage.from('posts-media').upload(`${folder}/${thumbFile.name}`, thumbFile, { upsert: true })
+    const { data: tUrl } = supabase.storage.from('posts-media').getPublicUrl(tData?.path || '')
+    if (cropTarget === 'sidebar_deco') { profile.sidebar_deco_url = fullUrl; profile.sidebar_deco_thumb = tUrl.publicUrl }
+    if (cropTarget === 'main_deco') { profile.main_deco_url = fullUrl; profile.main_deco_thumb = tUrl.publicUrl }
+  } else {
+    if (cropTarget === 'avatar') profile.avatar_url = fullUrl
+    else profile.cover_url = fullUrl
+  }
   saveProfile()
 }
 
 async function loadProfile() {
   const { data } = await supabase.from('profiles').select('*').eq('profile_type', 'side').limit(1).single()
-  if (data) { const d = data as any; profile.name = d.name || 'XRT'; profile.bio = d.bio || '✨ Pipe Dream · 白日梦收集者'; profile.avatar_url = d.avatar_url || ''; profile.cover_url = d.cover_url || '' }
-  else { try { const saved = localStorage.getItem('pipe-dream-profile'); if (saved) Object.assign(profile, JSON.parse(saved)) } catch {} }
+  if (data) { const d = data as any; profile.name = d.name || 'XRT'; profile.bio = d.bio || '✨ Pipe Dream · 白日梦收集者'; profile.avatar_url = d.avatar_url || ''; profile.cover_url = d.cover_url || ''; profile.sidebar_deco_url = d.sidebar_deco_url || ''; profile.sidebar_deco_thumb = d.sidebar_deco_thumb || ''; profile.main_deco_url = d.main_deco_url || ''; profile.main_deco_thumb = d.main_deco_thumb || '' }
 }
 async function saveProfile() {
   const { data: { user } } = await supabase.auth.getUser()
   const existing = await supabase.from('profiles').select('id').eq('profile_type', 'side').limit(1).single()
-  const row = { name: profile.name, bio: profile.bio, avatar_url: profile.avatar_url || null, cover_url: profile.cover_url || null, profile_type: 'side', user_id: user?.id } as any
+  const row = { name: profile.name, bio: profile.bio, avatar_url: profile.avatar_url || null, cover_url: profile.cover_url || null, sidebar_deco_url: profile.sidebar_deco_url || null, sidebar_deco_thumb: profile.sidebar_deco_thumb || null, main_deco_url: profile.main_deco_url || null, main_deco_thumb: profile.main_deco_thumb || null, profile_type: 'side', user_id: user?.id } as any
   if (existing.data) await supabase.from('profiles').update(row).eq('id', existing.data.id)
   else await supabase.from('profiles').insert(row)
   showEdit.value = false

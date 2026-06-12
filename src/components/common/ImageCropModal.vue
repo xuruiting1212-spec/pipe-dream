@@ -93,8 +93,7 @@ function fixCropperSize(wrap: HTMLElement) {
 
 function doCrop() {
   if (!cropper) return
-  const getCanvas = (cropper as any).getCroppedCanvas || cropper.getCropperCanvas.bind(cropper)
-  const canvas = getCanvas({})
+  const canvas = cropper.getCroppedCanvas({})
   if (!canvas) return
   canvas.toBlob((b: Blob | null) => { if (b) emit('cropped', b) }, 'image/png')
 }
