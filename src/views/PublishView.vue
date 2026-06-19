@@ -1,4 +1,4 @@
-<!--
+﻿<!--
   ===== PublishView — 发布/编辑帖子页 =====
   支持：
   - 标题、正文（Markdown）
@@ -121,6 +121,9 @@
         </label>
       </div>
 
+      <!-- 音频上传 -->
+      <AudioUploader v-model:audio="form.audio" />
+
       <!-- 操作按钮 -->
       <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-100">
         <!-- 保存草稿 -->
@@ -160,6 +163,7 @@ import MarkdownEditor from '@/components/publish/MarkdownEditor.vue'
 import TagInput from '@/components/publish/TagInput.vue'
 import VisibilitySelect from '@/components/publish/VisibilitySelect.vue'
 import ImageUploader from '@/components/publish/ImageUploader.vue'
+import AudioUploader from '@/components/publish/AudioUploader.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -194,6 +198,7 @@ const form = reactive<PostForm>({
   visibility: 'public',
   images: [],
   video: null,
+  audio: null,
   is_draft: false,
   author_type: 'me',
 })
@@ -237,7 +242,13 @@ async function handleSubmit(): Promise<void> {
     const postId = route.params.id as string | undefined
     const result = await postsStore.savePost({ ...form }, postId)
     if (result) {
-      router.push(`/post/${result.id}`)
+      // 编辑模式：通过 back 回到 PostDetail 页（历史里已有），PostDetail 因路由 key 变化会自动重新加载数据
+      // 发布模式：用 replace 替换掉 Publish 页，形成 [Home, PostDetail] 的干净历史
+      if (isEdit.value) {
+        router.back()
+      } else {
+        router.replace(`/post/${result.id}`)
+      }
     } else {
       errorMsg.value = postsStore.error || '保存失败'
     }
@@ -285,7 +296,9 @@ onMounted(async () => {
       form.visibility = post.visibility
       form.images = post.images || []
       form.video = post.video
+      form.audio = post.audio
       form.is_draft = post.is_draft
+      form.author_type = post.author_type
     }
   }
 })

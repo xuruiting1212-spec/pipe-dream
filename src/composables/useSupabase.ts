@@ -20,7 +20,9 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, 
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    // 不启用 detectSessionInUrl — 本站只用邮箱密码登录，无需 OAuth/魔法链接
+    // 开启此项在 iOS Safari 的 history.back() 时可能触发 URL 操作，导致"网址重复出现问题"
+    detectSessionInUrl: false,
   },
 })
 

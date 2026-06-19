@@ -22,6 +22,9 @@ const route = useRoute()
 
 async function loadPosts(): Promise<void> {
   await postsStore.fetchPosts(authStore.isLoggedIn)
+  // 批量加载帖子浏览量（用于卡片显示）
+  const ids = postsStore.filteredPosts.map(p => p.id)
+  if (ids.length > 0) await postsStore.fetchViewCounts(ids)
 }
 
 function applyUrlFilter(): void {

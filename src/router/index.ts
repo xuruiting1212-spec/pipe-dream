@@ -13,6 +13,7 @@ const router = createRouter({
     { path: '/private', name: 'private', component: () => import('@/views/PrivateView.vue'), meta: { title: '私有物 — Pipe Dream', requiresAuth: true } },
     { path: '/trash', name: 'trash', component: () => import('@/views/TrashView.vue'), meta: { title: '最近删除 — Pipe Dream', requiresAuth: true } },
     { path: '/canvas', name: 'canvas', component: () => import('@/views/CanvasView.vue'), meta: { title: '画板 — Pipe Dream' } },
+    { path: '/audio-editor', name: 'audio-editor', component: () => import('@/views/AudioEditorView.vue'), meta: { title: '音频编辑器 — Pipe Dream', requiresAuth: true } },
     { path: '/towa-posts', name: 'towa-posts', component: () => import('@/views/TowaPostsView.vue'), meta: { title: 'Towa的发布 — Pipe Dream' } },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('@/views/HomeView.vue'), meta: { title: 'Pipe Dream' } },
   ],

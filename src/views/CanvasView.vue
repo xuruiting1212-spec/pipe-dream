@@ -39,7 +39,7 @@
           :style="{ background: tool.color }">
           {{ tool.emoji }}
         </button>
-        <button @click="stickerActive = false; addText()" class="w-8 h-8 rounded-full bg-white/80 text-gray-600 text-sm font-bold flex items-center justify-center hover:bg-white transition-all">Aa</button>
+        <button @click="stickerActive = false; openTextEditor()" class="w-8 h-8 rounded-full bg-white/80 text-gray-600 text-sm font-bold flex items-center justify-center hover:bg-white transition-all">Aa</button>
         <label class="w-8 h-8 rounded-full bg-white/80 text-gray-600 text-sm flex items-center justify-center cursor-pointer hover:bg-white transition-all">
           🖼️<input type="file" accept="image/*" class="hidden" @change="addPhoto" />
         </label>
@@ -53,13 +53,29 @@
       <div v-for="(item, i) in canvasItems" :key="i"
         class="absolute cursor-move select-none group"
         :style="{ left: item.pos_x + 'px', top: item.pos_y + 'px', width: item.width + 'px', height: item.height + 'px', transform: 'rotate(' + item.rotation + 'deg)' }"
-        @mousedown.stop="dragItem(i, $event)" @touchstart.stop="dragItemTouch(i, $event)">
-        <img v-if="item.type === 'photo'" :src="item.content" class="w-full h-full object-cover rounded-lg shadow-md" />
+        @mousedown.stop="dragItem(i, $event)" @touchstart.stop="dragItemTouch(i, $event)"
+        @dblclick="onItemDblClick(item, i)">
+        <template v-if="item.type === 'photo'">
+          <div class="w-full h-full canvas-photo-frame" :class="photoFrameClass(item)">
+            <img :src="item.content" class="w-full h-full object-cover" />
+          </div>
+          <div v-if="authStore.isLoggedIn" class="absolute -top-2 -right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <button @click.stop="cycleBorder(i)" class="w-6 h-6 bg-white/90 text-gray-500 rounded-full text-xs flex items-center justify-center hover:bg-white shadow-sm" title="切换边框">🎨</button>
+            <button @click.stop="removeCanvasItem(i)" class="w-6 h-6 bg-red-400 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-500 shadow-sm">✕</button>
+          </div>
+        </template>
         <span v-else-if="item.type === 'sticker'" class="text-4xl drop-shadow-md">{{ item.content }}</span>
         <div v-else-if="item.type === 'text'"
-          :style="{ color: item.color, fontSize: (item.font_size || 16) + 'px' }"
-          class="whitespace-pre-wrap font-medium drop-shadow-sm">{{ item.content }}</div>
-        <button v-if="authStore.isLoggedIn" @click.stop="removeCanvasItem(i)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-400 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+          :style="{ color: item.color || '#333', fontSize: (item.font_size || 16) + 'px', fontFamily: item.font_family || 'inherit' }"
+          class="canvas-text-item"
+          :class="'canvas-text-bg-' + (item.bg || 'none')" v-html="renderMd(item.content)"></div>
+        <template v-if="item.type === 'text' && authStore.isLoggedIn">
+          <div class="absolute -top-2 -right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <button @click.stop="openTextEditor(i)" class="w-6 h-6 bg-white/90 text-gray-500 rounded-full text-xs flex items-center justify-center hover:bg-white shadow-sm" title="编辑文字">✏️</button>
+            <button @click.stop="removeCanvasItem(i)" class="w-6 h-6 bg-red-400 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-500 shadow-sm">✕</button>
+          </div>
+        </template>
+        <button v-else-if="authStore.isLoggedIn" @click.stop="removeCanvasItem(i)" class="absolute -top-2 -right-2 w-5 h-5 bg-red-400 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
       </div>
 
       <!-- ===== 大型玻璃心情瓶（左下角，靠近底部） ===== -->
@@ -140,6 +156,115 @@
       </div>
     </div>
     </div><!-- 外层滚动容器结束 -->
+
+    <!-- 画板存档面板 — 主内容区右下角，侧拉栏左侧 -->
+    <Teleport to="body">
+      <div class="fixed z-[130]" style="bottom: 24px; right: 380px;">
+        <template v-if="!boardPanelOpen">
+          <button @click="boardPanelOpen = true"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur shadow-md text-xs text-gray-500 hover:bg-white hover:text-dream-600 transition-all">
+            📋 <span>{{ boards.length > 0 ? currentBoardName : '画板' }}</span> ▲
+          </button>
+        </template>
+        <div v-else class="bg-white/95 backdrop-blur-xl rounded-2xl shadow-dream-lg p-4 mb-2 w-[230px]">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-sm font-medium text-gray-700">📋 画板管理</span>
+            <button @click="boardPanelOpen = false" class="text-gray-400 hover:text-gray-600 text-sm">▼ 收起</button>
+          </div>
+          <input v-model="boardRenameText" @keydown.enter="doRename"
+            class="w-full text-sm font-medium text-gray-700 bg-gray-50 border border-gray-100 rounded-lg px-3 py-1.5 mb-2 focus:outline-none focus:ring-2 focus:ring-dream-300" />
+          <div class="flex flex-col gap-0.5 mb-3 max-h-32 overflow-y-auto">
+            <div v-for="b in boards" :key="b.id" class="flex items-center gap-1">
+              <button @click="switchToBoard(b.id)"
+                class="flex-1 text-left px-3 py-1.5 rounded-lg text-sm transition-colors"
+                :class="currentBoardId === b.id ? 'bg-dream-50 text-dream-700 font-medium' : 'text-gray-600 hover:bg-gray-50'">
+                {{ b.name }}
+              </button>
+              <button v-if="boards.length > 1" @click="doDeleteBoard(b.id)"
+                class="w-6 h-6 rounded-full text-[10px] text-gray-300 hover:text-red-500 hover:bg-red-50 flex-shrink-0 flex items-center justify-center transition-colors" title="删除画板">🗑️</button>
+            </div>
+            <div v-if="boards.length === 0" class="text-xs text-gray-400 px-3 py-1">暂无存档</div>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" @click="doNewBoard"
+              :disabled="!authStore.isLoggedIn"
+              class="flex-1 text-xs py-2 rounded-full font-medium transition-colors"
+              :class="authStore.isLoggedIn ? 'bg-dream-50 text-dream-600 hover:bg-dream-100' : 'bg-gray-100 text-gray-300'">➕ 新建</button>
+            <button type="button" @click="doSaveBoard"
+              :disabled="!authStore.isLoggedIn"
+              class="flex-1 text-xs py-2 rounded-full font-medium transition-opacity"
+              :class="authStore.isLoggedIn ? 'bg-gradient-to-r from-dream-500 to-purple-500 text-white hover:opacity-90' : 'bg-gray-100 text-gray-300'">💾 保存</button>
+          </div>
+          <div v-if="!authStore.isLoggedIn" class="text-[10px] text-gray-400 mt-2 text-center">🔑 登录后可存档</div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ===== 文字编辑弹窗 ===== -->
+    <div v-if="textEditorOpen" class="fixed inset-0 z-[125] flex items-center justify-center bg-black/40" @click.self="canvasTextEditorCancel">
+      <div class="bg-white rounded-3xl p-6 w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-dream-lg mx-4 relative" @click.stop>
+        <button @click="canvasTextEditorCancel" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl">✕</button>
+        <h3 class="font-bold text-gray-800 mb-4">✏️ {{ editingTextIdx >= 0 ? '编辑文字' : '添加文字' }}</h3>
+
+        <!-- 颜色选择 -->
+        <div class="mb-3">
+          <div class="text-xs text-gray-500 mb-2">🎨 文字颜色</div>
+          <div class="flex gap-2 flex-wrap">
+            <button v-for="c in TEXT_COLORS" :key="c.value" @click="textColor = c.value"
+              class="w-8 h-8 rounded-full border-2 transition-all"
+              :class="textColor === c.value ? 'border-gray-700 scale-110' : 'border-transparent'"
+              :style="{ background: c.value }" :title="c.label"></button>
+          </div>
+        </div>
+
+        <!-- 背景选择 -->
+        <div class="mb-3">
+          <div class="text-xs text-gray-500 mb-2">📄 背景样式</div>
+          <div class="flex gap-2 flex-wrap">
+            <button v-for="bg in TEXT_BGS" :key="bg.value" @click="textBg = bg.value"
+              class="px-3 py-2 rounded-xl text-xs font-medium border-2 transition-all"
+              :class="[textBg === bg.value ? 'border-dream-500 bg-dream-50' : 'border-gray-200 bg-white hover:border-gray-300', bg.previewClass || '']"
+              :style="bg.previewStyle">{{ bg.label }}</button>
+          </div>
+        </div>
+
+        <!-- 字体选择 -->
+        <div class="mb-3">
+          <div class="text-xs text-gray-500 mb-2">🔤 字体</div>
+          <select v-model="textFont" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-dream-300">
+            <option v-for="f in TEXT_FONTS" :key="f.value" :value="f.value" :style="{ fontFamily: f.value }">{{ f.label }}</option>
+          </select>
+        </div>
+
+        <!-- 字体大小 -->
+        <div class="mb-4">
+          <div class="text-xs text-gray-500 mb-2">📏 字号: {{ textSize }}px</div>
+          <input type="range" v-model.number="textSize" min="10" max="48" step="1"
+            class="w-full accent-dream-500" />
+        </div>
+
+        <!-- 双栏编辑+预览 -->
+        <div class="flex flex-col md:flex-row gap-3 mb-4">
+          <div class="flex-1">
+            <div class="text-xs text-gray-500 mb-1">📝 编辑 (Markdown)</div>
+            <textarea v-model="textContent" class="w-full border border-gray-200 rounded-xl p-3 text-sm font-mono min-h-[160px] focus:outline-none focus:ring-2 focus:ring-dream-300" placeholder="写点文字... 支持 **粗体** *斜体*"></textarea>
+          </div>
+          <div class="flex-1">
+            <div class="text-xs text-gray-500 mb-1">👁️ 预览</div>
+            <div class="canvas-text-item w-full min-h-[160px] p-3 rounded-xl border border-gray-100 text-sm"
+              :class="'canvas-text-bg-' + textBg"
+              :style="{ color: textColor, fontSize: textSize + 'px', fontFamily: textFont }"
+              v-html="renderMd(textContent)">
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-2">
+          <button v-if="editingTextIdx >= 0" @click="canvasTextEditorDelete" class="bg-red-50 text-red-500 px-4 py-2.5 rounded-full text-sm font-medium hover:bg-red-100">🗑️ 删除</button>
+          <button @click="canvasTextEditorSave" class="flex-1 bg-gradient-to-r from-dream-500 to-purple-500 text-white py-2.5 rounded-full font-medium text-sm">{{ editingTextIdx >= 0 ? '💾 更新' : '✨ 添加' }}</button>
+        </div>
+      </div>
+    </div>
 
     <!-- 编辑人物卡片弹窗 -->
     <div v-if="editingCard" class="fixed inset-0 z-[120] flex items-center justify-center bg-black/40" @click.self="editingCard = false">
@@ -284,6 +409,7 @@
     </div>
   <!-- 裁剪弹窗 -->
   <ImageCropModal v-if="towaCropSrc" :src="towaCropSrc" :title="towaCropTitle" :aspectRatio="towaCropRatio" :cropHint="towaCropHint" @close="towaCropSrc=''" @cropped="towaCropDone" />
+<ImageCropModal v-if="canvasCropSrc" :src="canvasCropSrc" :title="canvasCropTitle" :aspectRatio="Number.isFinite(canvasCropRatio) ? canvasCropRatio : undefined" @close="canvasCropSrc=''" @cropped="canvasCropDone" />
   </div>
 </template>
 
@@ -291,7 +417,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/composables/useSupabase'
 import { useAuthStore } from '@/stores/auth'
-import { MOOD_CONFIG, type CanvasItem } from '@/types'
+import { MOOD_CONFIG, type CanvasItem, type CanvasBorder } from '@/types'
 import TagInput from '@/components/publish/TagInput.vue'
 import VisibilitySelect from '@/components/publish/VisibilitySelect.vue'
 import ImageUploader from '@/components/publish/ImageUploader.vue'
@@ -401,24 +527,81 @@ async function saveDayMood() {
   editDayDate.value = ''; await loadMoods()
 }
 
-async function loadCanvas() {
-  const { data } = await supabase.from('canvas_items').select('*').order('created_at')
-  if (data) canvasItems.value = data as CanvasItem[]
-}
-async function saveCanvas() {
-  const { data: { user } } = await supabase.auth.getUser(); if (!user) return
-  await supabase.from('canvas_items').delete().neq('id', '00000000-0000-0000-0000-000000000000')
-  const items: any[] = canvasItems.value.map(i => ({ type: i.type, content: i.content, pos_x: i.pos_x, pos_y: i.pos_y, width: i.width, height: i.height, rotation: i.rotation, color: i.color, font_size: i.font_size, user_id: user.id }))
-  if (items.length) await supabase.from('canvas_items').insert(items as any)
+// ===== 画板存档系统（localStorage 本地存储） =====
+interface Board { id: string; name: string; items_data: CanvasItem[]; created_at: string }
+const boards = ref<Board[]>([])
+const currentBoardId = ref('')
+const STORAGE_KEY = 'pipe-dream-canvas-boards'
+
+const boardPanelOpen = ref(false)
+const boardRenameText = ref('')
+const currentBoardName = computed(() => { const b = boards.value.find(b => b.id === currentBoardId.value); return b?.name || '画板' })
+
+function flushBoards() { localStorage.setItem(STORAGE_KEY, JSON.stringify(boards.value)) }
+
+function loadBoards() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) { boards.value = JSON.parse(raw); if (boards.value.length) { currentBoardId.value = boards.value[0].id; boardRenameText.value = boards.value[0].name; canvasItems.value = boards.value[0].items_data || []; return } }
+  } catch (e) { console.error('读取本地画板失败', e) }
+  const id = crypto.randomUUID(); boards.value = [{ id, name: '默认画板', items_data: [], created_at: new Date().toISOString() }]; currentBoardId.value = id; boardRenameText.value = '默认画板'; flushBoards()
 }
 
+function saveCanvas() { const b = boards.value.find(b => b.id === currentBoardId.value); if (b) b.items_data = [...canvasItems.value]; flushBoards() }
+
+function doSaveBoard() { if (!currentBoardId.value) return alert('⚠️ 请先创建一个画板'); saveCanvas(); alert('✅ 画板已保存！') }
+
+function doNewBoard() { const id = crypto.randomUUID(); const name = '画板 ' + (boards.value.length + 1); boards.value.push({ id, name, items_data: [], created_at: new Date().toISOString() }); currentBoardId.value = id; boardRenameText.value = name; canvasItems.value = []; flushBoards() }
+
+function doRename() { const n = boardRenameText.value.trim(); if (!n) return; const b = boards.value.find(b => b.id === currentBoardId.value); if (b) b.name = n; flushBoards() }
+
+function doDeleteBoard(id: string) {
+  if (boards.value.length <= 1) return
+  if (!confirm('确定删除这个画板吗？不可恢复！')) return
+  boards.value = boards.value.filter(b => b.id !== id)
+  // 如果删的是当前选中 → 切到第一个
+  if (currentBoardId.value === id) {
+    currentBoardId.value = boards.value[0].id
+    boardRenameText.value = boards.value[0].name
+    canvasItems.value = [...(boards.value[0].items_data || [])]
+  }
+  flushBoards()
+}
+
+function switchToBoard(id: string) { currentBoardId.value = id; const b = boards.value.find(b => b.id === id); if (b) { canvasItems.value = [...(b.items_data || [])]; boardRenameText.value = b.name } }
+
+
+
 let dragIdx = -1, dragOffX = 0, dragOffY = 0
-function dragItem(i: number, e: MouseEvent) { dragIdx = i; dragOffX = e.offsetX; dragOffY = e.offsetY }
-function dragItemTouch(i: number, e: TouchEvent) { dragIdx = i; dragOffX = e.touches[0].clientX - canvasItems.value[i].pos_x; dragOffY = e.touches[0].clientY - canvasItems.value[i].pos_y }
+function dragItem(i: number, e: MouseEvent) {
+  dragIdx = i
+  const rect = canvasRef.value?.getBoundingClientRect()
+  if (!rect) return
+  // 用 canvas 相对坐标，不用 offsetX（会受子元素影响跳变）
+  dragOffX = e.clientX - rect.left - canvasItems.value[i].pos_x
+  dragOffY = e.clientY - rect.top - canvasItems.value[i].pos_y
+}
+function dragItemTouch(i: number, e: TouchEvent) {
+  dragIdx = i
+  const rect = canvasRef.value?.getBoundingClientRect()
+  if (!rect) { dragOffX = 0; dragOffY = 0; return }
+  dragOffX = e.touches[0].clientX - rect.left - canvasItems.value[i].pos_x
+  dragOffY = e.touches[0].clientY - rect.top - canvasItems.value[i].pos_y
+}
+function drawing(e: MouseEvent) {
+  if (dragIdx < 0) return; e.preventDefault()
+  const rect = canvasRef.value?.getBoundingClientRect(); if (!rect) return
+  canvasItems.value[dragIdx].pos_x = e.clientX - rect.left - dragOffX
+  canvasItems.value[dragIdx].pos_y = e.clientY - rect.top - dragOffY
+}
+function drawingTouch(e: TouchEvent) {
+  if (dragIdx < 0) return
+  const rect = canvasRef.value?.getBoundingClientRect(); if (!rect) return
+  canvasItems.value[dragIdx].pos_x = e.touches[0].clientX - rect.left - dragOffX
+  canvasItems.value[dragIdx].pos_y = e.touches[0].clientY - rect.top - dragOffY
+}
 function startDraw(e: MouseEvent) { if (stickerActive.value) addSticker(e) }
 function startDrawTouch(e: TouchEvent) { if (stickerActive.value) addStickerTouch(e) }
-function drawing(e: MouseEvent) { if (dragIdx < 0) return; e.preventDefault(); canvasItems.value[dragIdx].pos_x = e.offsetX - dragOffX; canvasItems.value[dragIdx].pos_y = e.offsetY - dragOffY }
-function drawingTouch(e: TouchEvent) { if (dragIdx < 0) return; const rect = canvasRef.value?.getBoundingClientRect(); if (!rect) return; canvasItems.value[dragIdx].pos_x = e.touches[0].clientX - rect.left - dragOffX; canvasItems.value[dragIdx].pos_y = e.touches[0].clientY - rect.top - dragOffY }
 function stopDraw() { if (dragIdx >= 0) { saveCanvas(); dragIdx = -1 } }
 
 function toggleSticker(tool: typeof tools[0]) {
@@ -440,34 +623,161 @@ function addStickerTouch(e: TouchEvent) {
   canvasItems.value.push({ type: 'sticker', content: tool.emoji, pos_x: e.touches[0].clientX - rect.left - 20, pos_y: e.touches[0].clientY - rect.top - 20, width: 48, height: 48, rotation: 0, color: tool.color })
   stickerActive.value = false; saveCanvas()
 }
-function addText() { const txt = prompt('输入文字:'); if (!txt) return; canvasItems.value.push({ type: 'text', content: txt, pos_x: 100, pos_y: 100, width: 200, height: 40, rotation: 0, color: drawingColor.value, font_size: 20 }); saveCanvas() }
+// 文字编辑状态
+const textEditorOpen = ref(false); const textContent = ref(''); const textColor = ref('#333333')
+const textBg = ref<import('@/types').CanvasTextBg>('yellow'); const textFont = ref('inherit'); const textSize = ref(16)
+const editingTextIdx = ref(-1)
+const TEXT_COLORS: { value: string; label: string }[] = [
+  { value: '#333333', label: '墨黑' }, { value: '#e91e63', label: '玫红' }, { value: '#9c27b0', label: '紫' },
+  { value: '#1976d2', label: '蓝' }, { value: '#2e7d32', label: '绿' }, { value: '#e65100', label: '橙' },
+  { value: '#5d4037', label: '棕' }, { value: '#546e7a', label: '灰蓝' },
+]
+const TEXT_BGS: { value: import('@/types').CanvasTextBg; label: string; previewClass?: string; previewStyle?: Record<string,string> }[] = [
+  { value: 'none', label: '无背景' },
+  { value: 'yellow', label: '🟡 黄便签', previewStyle: { background: '#fff9c4' } },
+  { value: 'pink', label: '🌸 粉便签', previewStyle: { background: '#fce4ec' } },
+  { value: 'blue', label: '💙 蓝便签', previewStyle: { background: '#e3f2fd' } },
+  { value: 'green', label: '🌿 绿便签', previewStyle: { background: '#e8f5e9' } },
+  { value: 'grid', label: '📓 方格纸', previewStyle: { background: '#fff', backgroundImage: 'linear-gradient(#e0e0e0 1px, transparent 1px), linear-gradient(90deg, #e0e0e0 1px, transparent 1px)', backgroundSize: '20px 20px' } },
+  { value: 'dots', label: '🔵 点阵', previewStyle: { background: '#fff', backgroundImage: 'radial-gradient(#ccc 1px, transparent 1px)', backgroundSize: '16px 16px' } },
+]
+const TEXT_FONTS: { value: string; label: string }[] = [
+  { value: 'inherit', label: '默认' },
+  { value: '"Noto Serif SC", Georgia, serif', label: '衬线体' },
+  { value: '"Noto Sans SC", sans-serif', label: '无衬线' },
+  { value: 'Georgia, "Times New Roman", serif', label: 'Georgia' },
+  { value: '"Courier New", monospace', label: '等宽' },
+  { value: '"Comic Sans MS", cursive', label: '手写感' },
+]
+function openTextEditor(idx?: number) {
+  if (idx !== undefined && idx >= 0) {
+    const item = canvasItems.value[idx]
+    if (item && item.type === 'text') {
+      editingTextIdx.value = idx
+      textContent.value = item.content; textColor.value = item.color || '#333'
+      textBg.value = item.bg || 'none'; textFont.value = item.font_family || 'inherit'
+      textSize.value = item.font_size || 16
+      textEditorOpen.value = true; return
+    }
+  }
+  editingTextIdx.value = -1
+  textContent.value = ''; textColor.value = '#333'; textBg.value = 'yellow'
+  textFont.value = 'inherit'; textSize.value = 16
+  textEditorOpen.value = true
+}
+function canvasTextEditorSave() {
+  if (!textContent.value.trim()) return
+  const rect = canvasRef.value?.getBoundingClientRect()
+  const cw = rect ? Math.max(rect.width, 700) : 900
+  const ch = rect ? Math.max(rect.height, 600) : 700
+  const itemW = 220; const itemH = 180
+  const cx = Math.round((cw - itemW) / 2)
+  const cy = Math.round((ch - itemH) / 2)
+
+  if (editingTextIdx.value >= 0) {
+    const item = canvasItems.value[editingTextIdx.value]
+    if (item) {
+      item.content = textContent.value; item.color = textColor.value
+      item.bg = textBg.value; item.font_family = textFont.value; item.font_size = textSize.value
+    }
+  } else {
+    canvasItems.value.push({
+      type: 'text', content: textContent.value,
+      pos_x: Math.max(cx, 220), pos_y: Math.max(cy, 20),
+      width: itemW, height: itemH, rotation: 0,
+      color: textColor.value, font_size: textSize.value,
+      bg: textBg.value, font_family: textFont.value,
+    })
+  }
+  textEditorOpen.value = false; saveCanvas()
+}
+function canvasTextEditorCancel() { textEditorOpen.value = false }
+function canvasTextEditorDelete() {
+  if (editingTextIdx.value < 0) return
+  canvasItems.value.splice(editingTextIdx.value, 1)
+  textEditorOpen.value = false; saveCanvas()
+}
 async function addPhoto(e: Event) {
   const input = e.target as HTMLInputElement; if (!input.files?.[0]) return; const file = input.files[0]
-  const { data, error } = await supabase.storage.from('posts-media').upload(`canvas/${Date.now()}.${file.name.split('.').pop()}`, file, { upsert: false })
-  if (error) { alert('上传失败'); return }
-  const { data: urlData } = supabase.storage.from('posts-media').getPublicUrl(data.path)
-  canvasItems.value.push({ type: 'photo', content: urlData.publicUrl, pos_x: 50, pos_y: 50, width: 200, height: 200, rotation: 0 }); saveCanvas(); input.value = ''
+  input.value = ''
+  // 走裁剪流程，裁完后再上传
+  const reader = new FileReader()
+  reader.onload = () => {
+    canvasCropSrc.value = reader.result as string
+    canvasCropTitle.value = '裁剪照片'
+    canvasCropRatio.value = NaN  // 自由比例
+    canvasCropTarget = 'canvas-photo'
+  }
+  reader.readAsDataURL(file)
 }
+// 画板照片裁剪状态
+const canvasCropSrc = ref(''); const canvasCropTitle = ref(''); const canvasCropRatio = ref(1)
+let canvasCropTarget: 'canvas-photo' | 'towa-avatar' | 'towa-cover' = 'canvas-photo'
+async function canvasCropDone(blob: Blob) {
+  canvasCropSrc.value = ''
+  const file = new File([blob], `canvas-photo-${Date.now()}.png`, { type: 'image/png' })
+  const { data, error } = await supabase.storage.from('posts-media').upload(`canvas/${file.name}`, file, { upsert: false })
+  if (error) { alert('上传失败: ' + error.message); return }
+  const { data: urlData } = supabase.storage.from('posts-media').getPublicUrl(data.path)
+
+  // 预加载图片，等加载完再渲染，避免瞬闪
+  const preload = new Image()
+  preload.src = urlData.publicUrl
+  preload.onload = () => {
+    // 居中放置：避开左上人物卡片（留出 280px 的 x 偏移量）
+    const rect = canvasRef.value?.getBoundingClientRect()
+    const cw = rect ? Math.max(rect.width, 700) : 900
+    const ch = rect ? Math.max(rect.height, 600) : 700
+    const itemW = 200; const itemH = 200
+    const cx = Math.round((cw - itemW) / 2)
+    const cy = Math.round((ch - itemH) / 2)
+    // 确保不和左上卡片重叠
+    const safeX = Math.max(cx, 220)
+    const safeY = Math.max(cy, 20)
+    canvasItems.value.push({ type: 'photo', content: urlData.publicUrl, pos_x: safeX, pos_y: safeY, width: itemW, height: itemH, rotation: 0, border: 'polaroid' })
+    saveCanvas()
+  }
+}
+const BORDERS: CanvasBorder[] = ['polaroid', 'rounded', 'circle', 'film', 'shadow']
+function cycleBorder(i: number) {
+  const item = canvasItems.value[i]
+  if (!item || item.type !== 'photo') return
+  const idx = BORDERS.indexOf(item.border || 'rounded')
+  item.border = BORDERS[(idx + 1) % BORDERS.length]
+  saveCanvas()
+}
+function photoFrameClass(item: CanvasItem) {
+  const b = item.border || 'polaroid'
+  return 'canvas-frame-' + b
+}
+function onItemDblClick(item: CanvasItem, i: number) { if (item.type === 'text') openTextEditor(i) }
 function removeCanvasItem(i: number) { canvasItems.value.splice(i, 1); saveCanvas() }
 async function clearCanvas() { if (!confirm('清除所有画板内容？')) return; canvasItems.value = []; await supabase.from('canvas_items').delete().neq('id', '00000000-0000-0000-0000-000000000000') }
 
 async function loadProfile() {
-  const { data } = await supabase.from('profiles').select('*').eq('profile_type', 'canvas').limit(1).single()
+  const { data, error } = await supabase.from('profiles').select('*').eq('profile_type', 'canvas').maybeSingle()
+  if (error) { console.error('加载Towa卡片资料失败:', error.message); return }
   if (data) { const d = data as any; profile.name = d.name || 'Towa'; profile.bio = d.bio || ''; profile.avatar_url = d.avatar_url || ''; profile.cover_url = d.cover_url || '' }
 }
 async function saveProfile() {
   const { data: { user } } = await supabase.auth.getUser(); if (!user) return
-  const existing = await supabase.from('profiles').select('id').eq('profile_type', 'canvas').limit(1).single()
+  const { data: existing, error: selErr } = await supabase.from('profiles').select('id').eq('profile_type', 'canvas').maybeSingle()
   const row = { name: profile.name, bio: profile.bio, avatar_url: profile.avatar_url || null, cover_url: profile.cover_url || null, profile_type: 'canvas', user_id: user?.id } as any
-  if (existing.data) await supabase.from('profiles').update(row).eq('id', existing.data.id)
-  else await supabase.from('profiles').insert(row)
+  if (selErr) { console.error('检查Towa卡片资料失败:', selErr.message); return }
+  if (existing) {
+    const { error } = await supabase.from('profiles').update(row).eq('id', existing.id)
+    if (error) { console.error('更新Towa卡片资料失败:', error.message); alert('保存失败: ' + error.message); return }
+  } else {
+    const { error } = await supabase.from('profiles').insert(row)
+    if (error) { console.error('插入Towa卡片资料失败:', error.message); alert('保存失败: ' + error.message); return }
+  }
   editingCard.value = false
 }
 
 async function publishTowa() {
   const { data: { user } } = await supabase.auth.getUser(); if (!user) return
-  const { error } = await supabase.from('posts').insert({ title: pubForm.title, content: pubForm.content, type: '日常', tags: pubForm.tags, visibility: pubForm.visibility, images: pubForm.images, is_draft: false, author_type: 'towa', user_id: user.id })
-  if (error) { alert('发布失败'); return }
+  const { error } = await supabase.from('posts').insert({ title: pubForm.title, content: pubForm.content, type: '时间线总览', tags: pubForm.tags, visibility: pubForm.visibility, images: pubForm.images, is_draft: false, author_type: 'towa', user_id: user.id })
+  if (error) { alert('发布失败: ' + error.message); return }
   showPublish.value = false; pubForm.title = ''; pubForm.content = ''; pubForm.tags = []; pubForm.images = []
 }
 async function saveTowaDraft() {
@@ -481,9 +791,106 @@ async function loadSketchbook() { const { data } = await supabase.from('sketchbo
 function editSketch(s: any) { pubForm.title = s.title; pubForm.content = s.content; pubForm.tags = s.tags || []; pubForm.visibility = s.visibility; pubForm.images = s.images || []; showSketchbook.value = false; showPublish.value = true }
 async function delSketch(id: string) { await supabase.from('sketchbook').update({ deleted_at: new Date().toISOString() }).eq('id', id); await loadSketchbook() }
 
-onMounted(async () => { await Promise.all([loadMoods(), loadCanvas(), loadProfile(), loadSketchbook()]) })
+onMounted(async () => { await Promise.all([loadMoods(), loadBoards(), loadProfile(), loadSketchbook()]) })
 </script>
 
 <style scoped>
 .dream-input { @apply w-full px-4 py-3 rounded-lg border border-gray-200 bg-white/80 text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-dream-300 transition-all; }
+</style>
+
+<style>
+/* ===== 画板照片边框样式（全局样式，动态 class 匹配） ===== */
+
+/* 宝丽来拍立得 — 白边 + 底部标签位 */
+.canvas-frame-polaroid {
+  background: #fff;
+  padding: 10px 10px 28px 10px;
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15), 0 0 0 1px rgba(0,0,0,.06);
+  position: relative;
+}
+.canvas-frame-polaroid::after {
+  content: '📸 Pipe Dream';
+  position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%);
+  font-size: 9px; color: #bbb; font-family: 'Georgia', serif; white-space: nowrap;
+}
+
+/* 柔和圆角 — 通透玻璃感 */
+.canvas-frame-rounded {
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12), 0 0 0 1px rgba(255,255,255,.4) inset;
+  border: 3px solid rgba(255,255,255,.8);
+  background: rgba(255,255,255,.15);
+  backdrop-filter: blur(4px);
+}
+
+/* 正圆形 */
+.canvas-frame-circle {
+  border-radius: 50%;
+  box-shadow: 0 4px 18px rgba(156,39,176,.18), 0 0 0 4px rgba(255,255,255,.6);
+  overflow: hidden;
+}
+
+/* 胶片边框 — 上下齿孔 */
+.canvas-frame-film {
+  border-radius: 4px;
+  box-shadow: 0 3px 12px rgba(0,0,0,.18);
+  border: 6px solid #222;
+  outline: 2px dashed rgba(255,255,255,.2);
+  outline-offset: -6px;
+  position: relative;
+  background: #111;
+}
+
+/* 纯阴影 — 最简单的漂浮感 */
+.canvas-frame-shadow {
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.04);
+}
+
+/* ===== 画板文字便签底 ===== */
+.canvas-text-item {
+  width: 100%; height: 100%; padding: 12px;
+  overflow: hidden; word-break: break-word;
+  border-radius: 6px; line-height: 1.5;
+}
+.canvas-text-bg-none {
+  background: transparent;
+}
+.canvas-text-bg-yellow {
+  background: linear-gradient(175deg, #fffde7 0%, #fff9c4 40%, #fff176 100%);
+  box-shadow: 2px 3px 8px rgba(0,0,0,.10), inset 0 0 0 1px rgba(255,255,255,.6);
+  border-radius: 2px 10px 2px 10px;
+}
+.canvas-text-bg-pink {
+  background: linear-gradient(175deg, #fce4ec 0%, #f8bbd0 40%, #f48fb1 100%);
+  box-shadow: 2px 3px 8px rgba(233,30,99,.10), inset 0 0 0 1px rgba(255,255,255,.5);
+  border-radius: 2px 10px 2px 10px;
+}
+.canvas-text-bg-blue {
+  background: linear-gradient(175deg, #e3f2fd 0%, #bbdefb 40%, #90caf9 100%);
+  box-shadow: 2px 3px 8px rgba(25,118,210,.10), inset 0 0 0 1px rgba(255,255,255,.5);
+  border-radius: 2px 10px 2px 10px;
+}
+.canvas-text-bg-green {
+  background: linear-gradient(175deg, #e8f5e9 0%, #c8e6c9 40%, #a5d6a7 100%);
+  box-shadow: 2px 3px 8px rgba(46,125,50,.10), inset 0 0 0 1px rgba(255,255,255,.5);
+  border-radius: 2px 10px 2px 10px;
+}
+.canvas-text-bg-grid {
+  background: #fff;
+  background-image:
+    linear-gradient(#e8e8e8 1px, transparent 1px),
+    linear-gradient(90deg, #e8e8e8 1px, transparent 1px);
+  background-size: 20px 20px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 2px 3px 6px rgba(0,0,0,.06);
+}
+.canvas-text-bg-dots {
+  background: #fff;
+  background-image: radial-gradient(#ccc 1px, transparent 1px);
+  background-size: 16px 16px;
+  border: 1px solid #e0e0e0;
+  box-shadow: 2px 3px 6px rgba(0,0,0,.06);
+}
 </style>

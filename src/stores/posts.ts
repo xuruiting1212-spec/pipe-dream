@@ -2,6 +2,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { supabase } from '@/composables/useSupabase'
+import { fetchViewCounts as fetchViewCountsRemote, fetchViewCount as fetchViewCountRemote } from '@/composables/usePostViews'
 import type { Post, PostForm, PostFilter } from '@/types'
 
 export const usePostsStore = defineStore('posts', () => {
@@ -10,6 +11,8 @@ export const usePostsStore = defineStore('posts', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   const filter = ref<PostFilter>({ types: [], tag: '', keyword: '' })
+  /** 帖子浏览量映射 { postId: count } */
+  const viewCounts = ref<Record<string, number>>({})
 
   /** 根据多选分类过滤后的帖子（排除已删除和草稿） */
   const filteredPosts = computed(() => {
@@ -100,7 +103,7 @@ export const usePostsStore = defineStore('posts', () => {
       const postData: Record<string, unknown> = {
         title: form.title, content: form.content, type: form.type,
         subtype: form.subtype, tags: form.tags, visibility: form.visibility,
-        images: form.images, video: form.video, is_draft: form.is_draft,
+        images: form.images, video: form.video, audio: form.audio, is_draft: form.is_draft,
         user_id: userId, author_type: form.author_type || 'me',
       }
 
@@ -155,7 +158,7 @@ export const usePostsStore = defineStore('posts', () => {
     } finally { loading.value = false }
   }
 
-  async function uploadFile(file: File, folder: 'images' | 'videos' = 'images'): Promise<string | null> {
+  async function uploadFile(file: File, folder: 'images' | 'videos' | 'audio' = 'images'): Promise<string | null> {
     try {
       const ext = file.name.split('.').pop()
       const name = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`
@@ -164,6 +167,45 @@ export const usePostsStore = defineStore('posts', () => {
       const { data: urlData } = supabase.storage.from('posts-media').getPublicUrl(data.path)
       return urlData.publicUrl
     } catch (e) { error.value = '上传异常'; return null }
+  }
+
+  /** 查询单篇帖子浏览量 */
+  async function fetchViewCount(postId: string): Promise<number> {
+    const count = await fetchViewCountRemote(postId)
+    viewCounts.value[postId] = count
+    return count
+  }
+
+  /** 批量查询帖子浏览量并更新 viewCounts */
+  async function fetchViewCounts(postIds: string[]): Promise<void> {
+    const counts = await fetchViewCountsRemote(postIds)
+    viewCounts.value = { ...viewCounts.value, ...counts }
+  }
+
+  /** 更新帖子转文字内容和确认状态 */
+  async function updateTranscript(
+    postId: string,
+    transcript: string,
+    confirmed = false
+  ): Promise<boolean> {
+    try {
+      const { error: err } = await supabase
+        .from('posts')
+        .update({ audio_transcript: transcript, audio_transcript_confirmed: confirmed } as any)
+        .eq('id', postId)
+      if (err) { error.value = err.message; return false }
+      // 更新本地 currentPost 和 posts 数组
+      if (currentPost.value && currentPost.value.id === postId) {
+        currentPost.value.audio_transcript = transcript
+        currentPost.value.audio_transcript_confirmed = confirmed
+      }
+      const idx = posts.value.findIndex(p => p.id === postId)
+      if (idx !== -1) {
+        posts.value[idx].audio_transcript = transcript
+        posts.value[idx].audio_transcript_confirmed = confirmed
+      }
+      return true
+    } catch (e) { error.value = '更新转文字失败'; return false }
   }
 
   function setFilter(f: Partial<PostFilter>): void { filter.value = { ...filter.value, ...f } }
@@ -176,10 +218,11 @@ export const usePostsStore = defineStore('posts', () => {
   function clearError(): void { error.value = null }
 
   return {
-    posts, currentPost, loading, error, filter,
+    posts, currentPost, loading, error, filter, viewCounts,
     filteredPosts, drafts, privatePosts, trashedPosts,
     fetchPosts, fetchTrash, fetchPostById, savePost,
     softDelete, restorePost, permanentDelete, uploadFile,
+    fetchViewCount, fetchViewCounts, updateTranscript,
     setFilter, toggleType, resetFilter, clearError,
   }
 })

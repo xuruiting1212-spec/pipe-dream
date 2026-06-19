@@ -49,5 +49,8 @@ onMounted(async () => {
     return
   }
   await postsStore.fetchPosts(true)
+  // 加载私有帖子的浏览量
+  const ids = privatePosts.value.map(p => p.id)
+  if (ids.length > 0) await postsStore.fetchViewCounts(ids)
 })
 </script>

@@ -10,6 +10,7 @@
       <button
         v-for="option in options"
         :key="option.value"
+        type="button"
         @click="$emit('update:modelValue', option.value)"
         class="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium
                transition-all duration-300"

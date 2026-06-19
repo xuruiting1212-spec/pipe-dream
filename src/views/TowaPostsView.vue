@@ -9,10 +9,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'; import { supabase } from '@/composables/useSupabase'
+import { usePostsStore } from '@/stores/posts'
 import PostGrid from '@/components/posts/PostGrid.vue'
 const towaPosts = ref<any[]>([]); const loading = ref(true)
+const postsStore = usePostsStore()
 onMounted(async () => {
   const { data } = await supabase.from('posts').select('*').eq('author_type', 'towa').eq('is_draft', false).is('deleted_at', null).order('created_at', { ascending: false })
-  if (data) towaPosts.value = data; loading.value = false
+  if (data) { towaPosts.value = data; loading.value = false }
+  // 批量加载浏览量到 store（PostCard 从 postsStore.viewCounts 读取）
+  const ids = towaPosts.value.map((p: any) => p.id)
+  if (ids.length > 0) await postsStore.fetchViewCounts(ids)
 })
 </script>

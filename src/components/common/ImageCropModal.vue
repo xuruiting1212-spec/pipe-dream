@@ -1,204 +1,219 @@
-<!-- ImageCropModal — 全屏裁剪，固定框+图片可拖移缩放 -->
+<!--
+  ImageCropModal — 图片裁剪
+  图片渲染为视觉尺寸（无CSS scale），坐标映射精确
+-->
 <template>
   <Teleport to="body">
-    <div class="crop-overlay" @click.self="$emit('close')">
-      <!-- 顶部工具栏 -->
+    <div class="crop-root">
       <div class="crop-topbar">
-        <button class="crop-btn-close" @click="$emit('close')">✕</button>
-        <span>{{ title }}</span>
-        <button class="crop-btn-done" @click="doCrop">确定裁剪</button>
+        <button class="crop-btn-ghost" @click="$emit('close')">✕ 取消</button>
+        <span class="crop-title">{{ title }}</span>
+        <button class="crop-btn-done" @click="doCrop">✓ 确定裁剪</button>
       </div>
 
-      <!-- 裁剪主体容器 -->
-      <div ref="cropWrap" class="crop-stage">
-        <img ref="cropImg" :src="src" />
+      <div ref="stageRef" class="crop-stage"
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="onPointerUp"
+        @wheel.prevent="onWheel">
+
+        <img ref="imgRef" :src="src" class="crop-img" :style="imgStyle" draggable="false" />
+
+        <!-- 遮罩：四面板，围出中心裁剪框 -->
+        <div class="crop-mask" :style="maskTop" />
+        <div class="crop-mask" :style="maskBottom" />
+        <div class="crop-mask" :style="maskLeft" />
+        <div class="crop-mask" :style="maskRight" />
+        <div class="crop-outline" :style="frameOutline" />
       </div>
 
-      <!-- 底部提示 -->
       <div class="crop-bottombar">
-        🖱️ 拖拽移动 · 滚轮缩放 · {{ cropHintShort }}
+        🖱️ 拖拽移动 · 滚轮缩放 · 调整到满意后点「确定裁剪」
       </div>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch, computed, onBeforeUnmount } from 'vue'
-import Cropper from 'cropperjs'
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 
-const props = defineProps<{
-  src: string; title?: string; aspectRatio?: number; cropHint?: string
-}>()
-
+const props = defineProps<{ src: string; title?: string; aspectRatio?: number }>()
 const emit = defineEmits<{ close: []; cropped: [blob: Blob] }>()
+const ratio = (props.aspectRatio && props.aspectRatio > 0) ? props.aspectRatio : null  // null = 自由比例
 
-const cropImg = ref<HTMLImageElement | null>(null)
-const cropWrap = ref<HTMLDivElement | null>(null)
-let cropper: Cropper | null = null
-const cropHintShort = computed(() => (props.aspectRatio ?? 1) === 1 ? '1:1 正方形' : '2:1 横幅')
+const stageRef = ref<HTMLDivElement | null>(null)
+const imgRef   = ref<HTMLImageElement | null>(null)
 
-function init() {
-  const img = cropImg.value
-  const wrap = cropWrap.value
-  if (!img || !wrap) return
-  if (cropper) cropper.destroy()
+// 图片：视觉宽高（CSS px） + 偏移
+const vw = ref(800) // visual width
+const vh = ref(600) // visual height
+const dx = ref(0)   // translate X
+const dy = ref(0)   // translate Y
 
-  cropper = new Cropper(img, {
-    aspectRatio: props.aspectRatio ?? 1,
-    viewMode: 0,
-    dragMode: 'move',
-    cropBoxMovable: false,
-    cropBoxResizable: false,
-    autoCropArea: 0.85,
-    center: true,
-    guides: true,
-    highlight: true,
-    background: false,
-    modal: true,
-    zoomable: true,
-    zoomOnWheel: true,
-    toggleDragModeOnDblclick: false,
-    responsive: false,
-  } as any)
+// 裁剪框（stage正中，固定大小）
+const frame = reactive({ w: 300, h: 300, x: 0, y: 0 })
 
-  // cropperjs 会在 container/canvas 上设固定宽高（= 图片尺寸）
-  // 我们需要清掉，让容器靠 CSS 保持尺寸
-  nextTick(() => {
-    fixCropperSize(wrap)
-  })
+const imgStyle = computed(() => ({
+  transform: `translate(${dx.value}px, ${dy.value}px)`,
+  width:  vw.value + 'px',
+  height: vh.value + 'px',
+}))
+
+// 四块遮罩
+const maskTop    = computed(() => ({ top: '0', left: '0', right: '0', height: frame.y + 'px' }))
+const maskBottom = computed(() => ({ top: (frame.y + frame.h) + 'px', bottom: '0', left: '0', right: '0' }))
+const maskLeft   = computed(() => ({ top: frame.y + 'px', height: frame.h + 'px', left: '0', width: frame.x + 'px' }))
+const maskRight  = computed(() => ({ top: frame.y + 'px', height: frame.h + 'px', left: (frame.x + frame.w) + 'px', right: '0' }))
+const frameOutline = computed(() => ({ left: frame.x + 'px', top: frame.y + 'px', width: frame.w + 'px', height: frame.h + 'px' }))
+
+function recalcFrame() {
+  const stg = stageRef.value
+  if (!stg) return
+  const sw = stg.clientWidth; const sh = stg.clientHeight
+  if (!sw || !sh) return
+  const maxFw = sw * 0.85; const maxFh = sh * 0.85
+  if (ratio) {
+    // 有固定比例（头像1:1，背景2:1）
+    if (maxFw / ratio <= maxFh) {
+      frame.w = Math.round(maxFw); frame.h = Math.round(maxFw / ratio)
+    } else {
+      frame.h = Math.round(maxFh); frame.w = Math.round(maxFh * ratio)
+    }
+  } else {
+    // 自由比例 → 默认正方形，取宽高中较小的一侧
+    const side = Math.round(Math.min(maxFw, maxFh))
+    frame.w = side
+    frame.h = side
+  }
+  frame.x = Math.round((sw - frame.w) / 2)
+  frame.y = Math.round((sh - frame.h) / 2)
 }
 
-/** 清除 cropperjs 写入的内联尺寸，让 CSS 接管 */
-function fixCropperSize(wrap: HTMLElement) {
-  const container = wrap.querySelector('.cropper-container') as HTMLElement | null
-  if (!container) return
-  container.style.removeProperty('width')
-  container.style.removeProperty('height')
-  container.style.removeProperty('max-width')
-  container.style.removeProperty('max-height')
-  container.style.position = ''   // 让 CSS 的 relative 生效
+function fitImage() {
+  const img = imgRef.value; const stg = stageRef.value
+  if (!img || !stg) return
+  if (!img.complete || !img.naturalWidth) { img.addEventListener('load', fitImage, { once: true }); return }
 
-  const canvas = container.querySelector('.cropper-canvas') as HTMLElement | null
-  if (canvas) {
-    canvas.style.removeProperty('width')
-    canvas.style.removeProperty('height')
-  }
+  recalcFrame()
+  const sw = stg.clientWidth; const sh = stg.clientHeight
+  const nw = img.naturalWidth; const nh = img.naturalHeight
 
-  const wrapBox = container.querySelector('.cropper-wrap-box') as HTMLElement | null
-  if (wrapBox) {
-    wrapBox.style.removeProperty('width')
-    wrapBox.style.removeProperty('height')
-  }
+  const s = Math.min(sw / nw, sh / nh, 1)
+  vw.value = Math.round(nw * s)
+  vh.value = Math.round(nh * s)  // 宽高独立从原尺寸算，比例不漂移
+
+  dx.value = Math.round((sw - vw.value) / 2)
+  dy.value = Math.round((sh - vh.value) / 2)
+}
+
+// 拖拽
+let dragging = false
+let dSX = 0, dSY = 0, dOrigX = 0, dOrigY = 0
+
+function onPointerDown(e: PointerEvent) {
+  stageRef.value?.setPointerCapture(e.pointerId)
+  dragging = true; dSX = e.clientX; dSY = e.clientY; dOrigX = dx.value; dOrigY = dy.value
+}
+function onPointerMove(e: PointerEvent) {
+  if (!dragging) return
+  dx.value = dOrigX + (e.clientX - dSX); dy.value = dOrigY + (e.clientY - dSY)
+}
+function onPointerUp(_e: PointerEvent) { dragging = false }
+
+function onWheel(e: WheelEvent) {
+  const stg = stageRef.value; if (!stg) return
+  const rect = stg.getBoundingClientRect()
+  const mx = e.clientX - rect.left; const my = e.clientY - rect.top
+
+  const img = imgRef.value
+  if (!img?.naturalWidth) return
+  const nw = img.naturalWidth; const nh = img.naturalHeight
+
+  const s0 = vw.value / nw
+  const s1 = Math.max(0.05, Math.min(8, s0 * (e.deltaY < 0 ? 1.06 : 0.94)))
+
+  // 宽高都从原始尺寸 × 同一 scale 独立算，杜绝取整漂移
+  vw.value = Math.round(nw * s1)
+  vh.value = Math.round(nh * s1)
+
+  const r = s1 / s0
+  dx.value = mx - r * (mx - dx.value)
+  dy.value = my - r * (my - dy.value)
 }
 
 function doCrop() {
-  if (!cropper) return
-  const canvas = cropper.getCroppedCanvas({})
-  if (!canvas) return
+  const img = imgRef.value; if (!img) return
+  const nw = img.naturalWidth; const nh = img.naturalHeight
+  if (!nw || !nh) return
+
+  // scale = visual_pixels / natural_pixels
+  const s = vw.value / nw
+
+  const sx = (frame.x - dx.value) / s
+  const sy = (frame.y - dy.value) / s
+  const sw = frame.w / s
+  const sh = frame.h / s
+
+  const canvas = document.createElement('canvas')
+  canvas.width = frame.w; canvas.height = frame.h
+  canvas.getContext('2d')!.drawImage(img, sx, sy, sw, sh, 0, 0, frame.w, frame.h)
   canvas.toBlob((b: Blob | null) => { if (b) emit('cropped', b) }, 'image/png')
 }
 
-watch(() => props.src, () => nextTick(() => setTimeout(init, 200)))
-onMounted(() => nextTick(() => setTimeout(init, 200)))
-onBeforeUnmount(() => { if (cropper) { cropper.destroy(); cropper = null } })
+watch(() => props.src, () => nextTick(fitImage))
+onMounted(() => { fitImage() })
 </script>
 
 <style>
-/* === 弹窗结构 === */
-.crop-overlay {
+/* 全局样式（不用 scoped — Teleport 移到 body 后 scoped 可能不命中） */
+.crop-root {
   position: fixed; inset: 0; z-index: 140;
-  display: flex; flex-direction: column; align-items: center;
-  background: #111;
+  display: flex; flex-direction: column;
+  background: #111; user-select: none;
 }
 .crop-topbar {
-  width: 100%; height: 52px; flex-shrink: 0;
+  height: 52px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 24px; background: rgba(0,0,0,.7);
-  color: rgba(255,255,255,.8); font-size: 14px; box-sizing: border-box;
+  padding: 0 24px; background: rgba(0,0,0,.75);
+  color: #fff; font-size: 14px; z-index: 20;
 }
-.crop-btn-close {
-  color: rgba(255,255,255,.7); font-size: 20px; width: 40px; height: 40px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: none; border: none; cursor: pointer;
+.crop-btn-ghost {
+  color: rgba(255,255,255,.6); font-size: 14px; background: none;
+  border: none; cursor: pointer; padding: 8px 12px; border-radius: 8px;
 }
-.crop-btn-close:hover { background: rgba(255,255,255,.1); }
+.crop-btn-ghost:hover { background: rgba(255,255,255,.1); color: #fff; }
+.crop-title { font-size: 14px; color: rgba(255,255,255,.5); }
 .crop-btn-done {
-  background: linear-gradient(135deg,#e91e63,#9c27b0); color: white;
-  padding: 8px 24px; border-radius: 9999px; font-size: 14px;
-  border: none; cursor: pointer;
+  background: linear-gradient(135deg, #e91e63, #9c27b0); color: #fff;
+  padding: 8px 24px; border-radius: 9999px; font-size: 14px; font-weight: 600;
+  border: none; cursor: pointer; z-index: 10;
 }
+.crop-btn-done:hover { opacity: .9; }
+
 .crop-stage {
-  /* 桌面端 90vw × 70vh，手机端 95vw × 50vh */
-  width: 90vw; height: 70vh;
-  flex-shrink: 0; position: relative;
-  background: #1a1a1a; overflow: hidden;
+  flex: 1; min-height: 0; position: relative; overflow: hidden;
+  background: #1a1a1a; touch-action: none;
 }
+
+.crop-img {
+  position: absolute; top: 0; left: 0; display: block;
+  transform-origin: top left;
+  image-rendering: auto;
+}
+
+.crop-mask {
+  position: absolute; background: rgba(0,0,0,.5); pointer-events: none;
+}
+
+.crop-outline {
+  position: absolute; pointer-events: none;
+  outline: 2px solid rgba(233,30,99,.85); z-index: 10;
+}
+
 .crop-bottombar {
-  width: 100%; height: 32px; flex-shrink: 0;
+  height: 36px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  color: rgba(255,255,255,.35); font-size: 12px;
-  background: rgba(0,0,0,.7);
-}
-
-/* === cropperjs 容器强制充满 crop-stage === */
-.crop-stage .cropper-container {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  position: relative !important;
-  direction: ltr; font-size: 0; line-height: 0;
-  touch-action: none; user-select: none;
-}
-/* 让画布也跟着拉伸 */
-.crop-stage .cropper-canvas {
-  width: 100% !important;
-  height: 100% !important;
-  position: absolute; inset: 0; overflow: hidden;
-}
-.crop-stage .cropper-wrap-box {
-  width: 100% !important;
-  height: 100% !important;
-  position: absolute; inset: 0; overflow: hidden;
-}
-/* 图片在画布内铺满 */
-.crop-stage .cropper-canvas img {
-  object-fit: contain;
-  min-width: 100% !important;
-  min-height: 100% !important;
-}
-
-/* === 裁剪框/模态/辅助线 === */
-.cropper-drag-box  { background: #fff; opacity: 0; position: absolute; inset: 0; }
-.cropper-modal     { background: #000; opacity: .55; position: absolute; inset: 0; }
-.cropper-view-box  { outline: 2px solid rgba(233,30,99,.85); }
-.cropper-dashed     { border: 0 dashed rgba(255,255,255,.4); display: block; opacity: .5; position: absolute; }
-.cropper-dashed.dashed-h { border-bottom-width: 1px; border-top-width: 1px; height: 33.3333%; left: 0; top: 33.3333%; width: 100%; }
-.cropper-dashed.dashed-v { border-left-width: 1px; border-right-width: 1px; height: 100%; left: 33.3333%; top: 0; width: 33.3333%; }
-.cropper-center     { display: block; height: 0; left: 50%; opacity: .75; position: absolute; top: 50%; width: 0; }
-.cropper-center::before,.cropper-center::after { background: rgba(255,255,255,.6); content: ' '; display: block; position: absolute; }
-.cropper-center::before { height: 1px; left: -3px; top: 0; width: 7px; }
-.cropper-center::after  { height: 7px; left: 0; top: -3px; width: 1px; }
-.cropper-face       { background: #fff; left: 0; top: 0; opacity: .1; position: absolute; }
-.cropper-line       { background: #e91e63; position: absolute; }
-.cropper-line.line-e { right: -3px; top: 0; width: 5px; }
-.cropper-line.line-n { height: 5px; left: 0; top: -3px; }
-.cropper-line.line-w { left: -3px; top: 0; width: 5px; }
-.cropper-line.line-s { bottom: -3px; height: 5px; left: 0; }
-.cropper-point       { background: #e91e63; height: 5px; opacity: .75; width: 5px; position: absolute; display: none; } /* 隐藏拖拽手柄 — 裁剪框不可缩放 */
-.cropper-point.point-se { display: none; }
-.cropper-invisible   { opacity: 0; }
-.cropper-hide        { display: block; height: 0; position: absolute; width: 0; }
-.cropper-hidden      { display: none !important; }
-.cropper-move        { cursor: move; }
-.cropper-crop        { cursor: crosshair; }
-
-/* === 手机端 === */
-@media (max-width: 767px) {
-  .crop-stage {
-    width: 95vw; height: 55vh;
-  }
-  .crop-topbar { padding: 0 16px; height: 46px; }
-  .crop-btn-done { padding: 6px 18px; font-size: 13px; }
+  color: rgba(255,255,255,.3); font-size: 12px;
+  background: rgba(0,0,0,.75); z-index: 20;
 }
 </style>

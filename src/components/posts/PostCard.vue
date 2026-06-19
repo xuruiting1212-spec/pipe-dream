@@ -51,6 +51,7 @@
           </div>
           <span>{{ post.author_type === 'towa' ? 'Towa' : 'XRT' }}</span>
           <span>· {{ formatDate(post.created_at) }}</span>
+          <span v-if="authStore.isLoggedIn && postViewCount > 0 && post.visibility !== 'private'" class="ml-1">· 👁️ {{ postViewCount }}</span>
         </div>
         <span class="opacity-0 group-hover:opacity-100 transition-opacity text-dream-500">查看详情 →</span>
       </div>
@@ -61,10 +62,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { usePostsStore } from '@/stores/posts'
+import { useAuthStore } from '@/stores/auth'
 import type { Post } from '@/types'
 
 const props = defineProps<{ post: Post }>()
 const router = useRouter()
+const postsStore = usePostsStore()
+const authStore = useAuthStore()
+
+/** 当前帖子的浏览量（从 store 中的 viewCounts 读取） */
+const postViewCount = computed(() => postsStore.viewCounts[props.post.id] ?? 0)
 
 const maxShow = 9
 const displayImages = computed(() => props.post.images?.slice(0, maxShow) || [])

@@ -1,7 +1,12 @@
 <template>
   <div v-if="uiStore.sidebarOpen" class="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden" @click="uiStore.closeSidebar()" />
-  <aside class="fixed md:sticky top-0 right-0 h-screen md:h-auto w-[280px] flex-shrink-0 z-50 bg-white/70 backdrop-blur-xl border-l border-dream-100/50
-    flex flex-col items-center px-5 py-8 overflow-y-auto transition-transform duration-300 ease-out shadow-dream-lg md:shadow-none"
+  <!--
+    桌面端 (md+)：sticky + self-start → 在 flex 流中占 280px，页面滚动时粘在顶部不动
+              self-start 是关键 — 防止 flex 的 align-items:stretch 把 aside 拉得比 h-screen 高
+    手机端 (<md)：fixed 定位，脱离 flex 流，覆盖在主内容上方，默认推到屏幕外
+  -->
+  <aside class="fixed right-0 top-0 md:sticky md:top-0 md:self-start h-screen w-[280px] flex-shrink-0 z-50 bg-white/70 backdrop-blur-xl border-l border-dream-100/50
+    flex flex-col items-center px-5 py-8 overflow-y-auto transition-transform duration-300 ease-out shadow-dream-lg"
     :class="{ 'translate-x-0': uiStore.sidebarOpen || !uiStore.isMobile, 'translate-x-full': !uiStore.sidebarOpen && uiStore.isMobile }">
     <button class="md:hidden absolute top-4 left-4 text-gray-400 hover:text-gray-600 text-2xl" @click="uiStore.closeSidebar()">✕</button>
 
@@ -41,7 +46,7 @@
 
         <!-- 侧栏装饰图上传 -->
         <label class="flex items-center gap-2 text-sm text-gray-600 mb-3 cursor-pointer hover:text-dream-600 transition-colors">
-          <span class="text-lg">🎀</span><span>{{ profile.sidebar_deco_url ? '✅ 已设侧栏装饰（点此更换）' : '上传侧栏装饰图 (16:9)' }}</span>
+          <span class="text-lg">🎀</span><span>{{ profile.sidebar_deco_url ? '✅ 已设侧栏装饰（点此更换）' : '上传侧栏装饰图 (9:16 竖条)' }}</span>
           <input type="file" accept="image/*" class="hidden" @change="handleSideDecoFile" />
         </label>
 
@@ -100,9 +105,16 @@
       <button v-if="authStore.isLoggedIn" @click="nav('/trash')" class="dream-btn-ghost text-left flex items-center gap-3 text-sm"><span>🗑️</span>最近删除</button>
     </nav>
 
-    <!-- 侧栏底部装饰渐变叠加 -->
-    <div v-if="profile.sidebar_deco_url" class="absolute bottom-0 left-0 right-0 pointer-events-none" style="height:40%; z-index:0;">
-      <div style="width:100%; height:100%; background: linear-gradient(to top, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.1) 50%, transparent 100%), url(v-bind('profile.sidebar_deco_thumb || profile.sidebar_deco_url')); background-size: cover; background-position: center bottom; opacity:0.5;" />
+    <!-- 侧栏装饰 — 底部对齐 mask虚化，手机端隐藏 -->
+    <div v-if="profile.sidebar_deco_url" class="absolute bottom-0 left-0 right-0 pointer-events-none hidden md:block" style="z-index:0; height:65%;">
+      <div :style="{
+        width:'100%', height:'100%',
+        backgroundImage: 'url(' + (profile.sidebar_deco_thumb || profile.sidebar_deco_url) + ')',
+        backgroundSize: '100% auto', backgroundPosition: 'center bottom', backgroundRepeat: 'no-repeat',
+        maskImage: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 20%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.04) 70%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 20%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.04) 70%, transparent 100%)',
+        opacity: 0.6,
+      }" />
     </div>
 
     <div class="mt-auto pt-8 w-full relative z-10">
@@ -173,15 +185,22 @@ async function onCropDone(blob: Blob) {
 }
 
 async function loadProfile() {
-  const { data } = await supabase.from('profiles').select('*').eq('profile_type', 'side').limit(1).single()
+  const { data, error } = await supabase.from('profiles').select('*').eq('profile_type', 'side').maybeSingle()
+  if (error) { console.error('加载侧栏资料失败:', error.message); return }
   if (data) { const d = data as any; profile.name = d.name || 'XRT'; profile.bio = d.bio || '✨ Pipe Dream · 白日梦收集者'; profile.avatar_url = d.avatar_url || ''; profile.cover_url = d.cover_url || ''; profile.sidebar_deco_url = d.sidebar_deco_url || ''; profile.sidebar_deco_thumb = d.sidebar_deco_thumb || ''; profile.main_deco_url = d.main_deco_url || ''; profile.main_deco_thumb = d.main_deco_thumb || '' }
 }
 async function saveProfile() {
-  const { data: { user } } = await supabase.auth.getUser()
-  const existing = await supabase.from('profiles').select('id').eq('profile_type', 'side').limit(1).single()
+  const { data: { user } } = await supabase.auth.getUser(); if (!user) return
+  const { data: existing, error: selErr } = await supabase.from('profiles').select('id').eq('profile_type', 'side').maybeSingle()
+  if (selErr) { console.error('检查侧栏资料失败:', selErr.message); return }
   const row = { name: profile.name, bio: profile.bio, avatar_url: profile.avatar_url || null, cover_url: profile.cover_url || null, sidebar_deco_url: profile.sidebar_deco_url || null, sidebar_deco_thumb: profile.sidebar_deco_thumb || null, main_deco_url: profile.main_deco_url || null, main_deco_thumb: profile.main_deco_thumb || null, profile_type: 'side', user_id: user?.id } as any
-  if (existing.data) await supabase.from('profiles').update(row).eq('id', existing.data.id)
-  else await supabase.from('profiles').insert(row)
+  if (existing) {
+    const { error } = await supabase.from('profiles').update(row).eq('id', existing.id)
+    if (error) { console.error('更新侧栏资料失败:', error.message); alert('保存失败: ' + error.message); return }
+  } else {
+    const { error } = await supabase.from('profiles').insert(row)
+    if (error) { console.error('插入侧栏资料失败:', error.message); alert('保存失败: ' + error.message); return }
+  }
   showEdit.value = false
 }
 onMounted(() => loadProfile())

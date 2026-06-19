@@ -10,6 +10,8 @@ export interface Post {
   id: string; created_at: string; title: string; content: string
   type: PostType; subtype: Subtype | null; tags: string[]
   visibility: Visibility; images: string[]; video: string | null
+  audio: string | null; audio_transcript: string | null
+  audio_transcript_confirmed: boolean
   is_draft: boolean; user_id?: string; deleted_at?: string | null
   author_type: AuthorType
 }
@@ -17,7 +19,7 @@ export interface Post {
 export interface PostForm {
   title: string; content: string; type: PostType; subtype: Subtype | null
   tags: string[]; visibility: Visibility; images: string[]; video: string | null
-  is_draft: boolean; author_type: AuthorType
+  audio: string | null; is_draft: boolean; author_type: AuthorType
 }
 
 export interface PostFilter {
@@ -41,10 +43,16 @@ export interface MoodRecord {
   my_mood: MoodType | null; towa_mood: MoodType | null
 }
 
+export type CanvasBorder = 'rounded' | 'circle' | 'polaroid' | 'film' | 'shadow'
+export type CanvasTextBg = 'none' | 'yellow' | 'pink' | 'blue' | 'green' | 'grid' | 'dots'
+
 export interface CanvasItem {
   id?: string; user_id?: string; type: 'sticker' | 'text' | 'photo' | 'doodle'
   content: string; pos_x: number; pos_y: number; width: number; height: number
   rotation: number; color?: string; font_size?: number
+  border?: CanvasBorder       // 照片卡片边框
+  bg?: CanvasTextBg           // 文字背景样式
+  font_family?: string        // 文字字体
 }
 
 export interface SketchbookEntry {

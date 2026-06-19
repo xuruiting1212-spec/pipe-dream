@@ -17,6 +17,7 @@
       >
         #{{ tag }}
         <button
+          type="button"
           @click="removeTag(index)"
           class="text-dream-400 hover:text-dream-600 text-xs ml-0.5"
         >

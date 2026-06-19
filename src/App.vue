@@ -21,19 +21,26 @@
     <div v-else class="flex min-h-screen max-w-[1600px] mx-auto relative">
       <!-- ===== 左侧主内容区 ===== -->
       <main class="flex-1 min-w-0 p-4 md:p-6 lg:p-8 pb-20 md:pb-8 relative">
-        <!-- 主区装饰渐变叠加（顶部→向下淡出） -->
-        <div v-if="mainDecoBg" class="absolute top-0 left-0 right-0 pointer-events-none z-0" style="height:50%;">
-          <div :style="{
-            width:'100%', height:'100%',
-            background: `linear-gradient(to bottom, rgba(252,228,236,0.5) 0%, rgba(252,228,236,0.05) 60%, transparent 100%), url(${mainDecoBg})`,
-            backgroundSize: 'cover', backgroundPosition: 'center top', opacity: 0.45,
-          }" />
+        <!-- 左侧边缘虚化 — 夹在装饰图(底)与文字(顶)之间，桌面端可见 -->
+        <div class="absolute left-0 top-0 bottom-0 pointer-events-none z-[5] hidden md:block"
+          style="width: 280px; background: linear-gradient(to right, rgba(252,228,236,0.92) 0%, rgba(252,228,236,0.65) 20%, rgba(252,228,236,0.3) 50%, rgba(252,228,236,0.06) 80%, transparent 100%);">
+        </div>
+
+        <!-- 主区装饰 — 用原图高清、更高、虚化更晚开始 -->
+        <div v-if="mainDecoBg" class="absolute top-0 left-0 right-0 pointer-events-none z-0 hidden md:block" style="height:500px">
+          <div style="width:100%;height:100%"
+            :style="{ background: 'url('+mainDecoBg+') center 30% / cover no-repeat',
+              maskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.45) 30%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.06) 80%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.45) 30%, rgba(0,0,0,0.25) 55%, rgba(0,0,0,0.06) 80%, transparent 100%)',
+            }" />
         </div>
         <div class="relative z-10">
           <router-view v-slot="{ Component, route }">
-            <transition name="page" mode="out-in">
+            <!-- 桌面端使用页面切换动画；移动端跳过，避免与 iOS Safari 返回导航冲突 -->
+            <transition v-if="!isTouchDevice" name="page" mode="out-in">
               <component :is="Component" :key="route.path" />
             </transition>
+            <component v-else :is="Component" :key="route.path" />
           </router-view>
         </div>
       </main>
@@ -101,6 +108,8 @@ const authStore = useAuthStore()
 const uiStore = useUiStore()
 
 const mainDecoBg = ref('')
+/** 检测触屏设备：移动端跳过页面切换动画，避免与 iOS Safari 返回导航冲突 */
+const isTouchDevice = ref(false)
 
 function isActive(path: string): boolean {
   return router.currentRoute.value.path === path
@@ -108,12 +117,17 @@ function isActive(path: string): boolean {
 
 async function loadMainDeco() {
   const { data } = await supabase.from('profiles').select('main_deco_thumb,main_deco_url').eq('profile_type','side').limit(1).single()
-  if (data) { const d = data as any; mainDecoBg.value = d.main_deco_thumb || d.main_deco_url || '' }
+  if (data) { const d = data as any; mainDecoBg.value = d.main_deco_url || d.main_deco_thumb || '' }
 }
 
 onMounted(async () => {
+  isTouchDevice.value = 'ontouchstart' in window || navigator.maxTouchPoints > 0
   await authStore.init()
   loadMainDeco()
+  // iOS Safari bfcache 恢复后刷新装饰图（bfcache 恢复时连接可能已断开）
+  window.addEventListener('pageshow', (event) => {
+    if (event.persisted) loadMainDeco()
+  })
 })
 </script>
 

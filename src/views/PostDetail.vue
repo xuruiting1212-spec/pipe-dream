@@ -23,7 +23,8 @@
 
       <div class="flex items-center gap-4 text-sm text-gray-400 mb-6 pb-4 border-b border-gray-100">
         <span>🕐 {{ formatDate(post.created_at) }}</span>
-        <span>👁️ {{ post.visibility === 'public' ? '公开' : '仅自己' }}</span>
+        <span v-if="authStore.isLoggedIn && post.visibility !== 'private'">👁️ {{ viewCount }} 次浏览</span>
+        <span v-if="post.visibility !== 'public'">🔒 仅自己可见</span>
       </div>
 
       <!-- 标签 -->
@@ -43,6 +44,28 @@
           style="image-rendering: auto; max-height: none; object-fit: contain; display: block;"
           loading="lazy" @click="openLightbox(idx)" />
       </div>
+
+      <!-- 音频播放器 -->
+      <AudioPlayer v-if="post.audio" :src="post.audio" />
+
+      <!-- 转文字面板 -->
+      <!-- 作者视角：始终显示面板（可以转文字/编辑/确认） -->
+      <TranscriptPanel
+        v-if="post.audio && authStore.isLoggedIn"
+        :post-id="post.id"
+        :audio-url="post.audio"
+        :transcript="post.audio_transcript"
+        :confirmed="post.audio_transcript_confirmed"
+      />
+      <!-- 访客视角：仅确认后才显示文字 -->
+      <TranscriptPanel
+        v-if="post.audio && !authStore.isLoggedIn && post.audio_transcript_confirmed && post.audio_transcript"
+        :post-id="post.id"
+        :audio-url="post.audio"
+        :transcript="post.audio_transcript"
+        :confirmed="true"
+        :readonly="true"
+      />
 
       <!-- Markdown 正文 -->
       <div class="markdown-body bg-white/60 rounded-dream p-6 md:p-8 shadow-dream-sm" v-html="renderedContent"></div>
@@ -74,12 +97,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 import { usePostsStore } from '@/stores/posts'
 import { useAuthStore } from '@/stores/auth'
+import { recordView, fetchViewCount } from '@/composables/usePostViews'
+import AudioPlayer from '@/components/posts/AudioPlayer.vue'
+import TranscriptPanel from '@/components/posts/TranscriptPanel.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 const route = useRoute(); const router = useRouter()
 const postsStore = usePostsStore(); const authStore = useAuthStore()
 const post = computed(() => postsStore.currentPost)
 const loading = ref(true)
+const viewCount = ref(0)
 const lightboxImage = ref<string | null>(null)
 const lightboxIndex = ref(0)
 
@@ -125,6 +152,12 @@ async function handleDelete(): Promise<void> {
 onMounted(async () => {
   const id = route.params.id as string
   await postsStore.fetchPostById(id)
+  if (postsStore.currentPost) {
+    // 记录浏览（内部会自动判断是否作者、是否 24h 内已记录）
+    await recordView(id, postsStore.currentPost.user_id)
+    // 获取最新浏览量（仅登录用户能看到，但不登录的访客也需要这个数字）
+    viewCount.value = await fetchViewCount(id)
+  }
   loading.value = false
 })
 </script>
