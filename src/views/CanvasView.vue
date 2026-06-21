@@ -521,6 +521,7 @@ async function loadMoods() {
         }
       }
     }
+    console.log('[CanvasV2-debug] jarMoods count:', jarMoods.value.length, 'realMonth:', realMonth)
     // 反转：flex-wrap 最新心情先排到顶行，早期心情自然沉底
     jarMoods.value.reverse()
   }
