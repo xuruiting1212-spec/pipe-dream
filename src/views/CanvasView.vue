@@ -121,11 +121,15 @@
             <ellipse cx="120" cy="340" rx="80" ry="7" fill="rgba(255,255,255,0.08)" stroke="rgba(180,170,200,0.2)" stroke-width="1" />
           </svg>
 
-          <!-- 瓶内心情球：每行6个（3天×2），共11行=66格，从瓶底往上堆积，每行居中 -->
-          <!-- 瓶内宽184px，24px球+3px间距：6个一行=159px居中，11行=294px填满瓶高 -->
-          <div class="absolute flex flex-wrap items-end justify-center content-end gap-[3px] overflow-hidden"
-            style="left:28px; right:28px; bottom:58px; top:18px;">
-            <span v-for="(m, i) in jarMoods" :key="i" class="leading-none inline-flex items-center justify-center flex-shrink-0"
+          <!-- 瓶内心情球：CSS Grid 精确控制 6列×11行，紧贴瓶底 -->
+          <!-- 瓶内宽184px：6×(24px球+3px间距)-3px=159px 居中 -->
+          <div class="absolute grid gap-[3px] overflow-hidden"
+            style="left:28px; right:28px; bottom:58px; top:18px;
+                   grid-template-columns: repeat(6, 24px);
+                   grid-template-rows: repeat(11, 24px);
+                   justify-content: center;
+                   align-content: end;">
+            <span v-for="(m, i) in jarMoods" :key="i" class="leading-none inline-flex items-center justify-center"
               style="font-size:12px; width:24px; height:24px; box-shadow: 0 0 2px rgba(0,0,0,0.1);"
               :style="{
                 borderRadius: m.shape === 'circle' ? '50%' : '4px',
@@ -521,7 +525,6 @@ async function loadMoods() {
         }
       }
     }
-    console.log('[CanvasV2-debug] jarMoods count:', jarMoods.value.length, 'realMonth:', realMonth)
     // 反转：flex-wrap 最新心情先排到顶行，早期心情自然沉底
     jarMoods.value.reverse()
   }
