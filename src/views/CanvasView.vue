@@ -121,14 +121,16 @@
             <ellipse cx="120" cy="340" rx="80" ry="7" fill="rgba(255,255,255,0.08)" stroke="rgba(180,170,200,0.2)" stroke-width="1" />
           </svg>
 
-          <!-- 瓶内心情球：CSS Grid 精确控制 6列×11行，紧贴瓶底 -->
+          <!-- 瓶内心情球：CSS Grid 精确控制 6列×11行，占位空格推到底部 -->
           <!-- 瓶内宽184px：6×(24px球+3px间距)-3px=159px 居中 -->
           <div class="absolute grid gap-[3px] overflow-hidden"
             style="left:28px; right:28px; bottom:58px; top:18px;
                    grid-template-columns: repeat(6, 24px);
                    grid-template-rows: repeat(11, 24px);
                    justify-content: center;
-                   align-content: end;">
+                   align-content: start;">
+            <!-- 占位空格：把实际心情球推到底部行 -->
+            <span v-for="n in (66 - jarMoods.length)" :key="'sp-'+n" style="width:24px; height:24px;" />
             <span v-for="(m, i) in jarMoods" :key="i" class="leading-none inline-flex items-center justify-center"
               style="font-size:12px; width:24px; height:24px; box-shadow: 0 0 2px rgba(0,0,0,0.1);"
               :style="{
