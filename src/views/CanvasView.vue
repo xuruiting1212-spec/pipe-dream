@@ -121,17 +121,15 @@
             <ellipse cx="120" cy="340" rx="80" ry="7" fill="rgba(255,255,255,0.08)" stroke="rgba(180,170,200,0.2)" stroke-width="1" />
           </svg>
 
-          <!-- 瓶内心情球，堆在瓶身内部底部 -->
-          <div class="absolute flex flex-wrap items-end justify-center content-end gap-[2px] overflow-hidden"
+          <!-- 瓶内心情球：每行6个（3天×2），共11行=66格，从瓶底往上堆积，每行居中 -->
+          <!-- 瓶内宽184px，24px球+3px间距：6个一行=159px居中，11行=294px填满瓶高 -->
+          <div class="absolute flex flex-wrap items-end justify-center content-end gap-[3px] overflow-hidden"
             style="left:28px; right:28px; bottom:58px; top:18px;">
-            <span v-for="(m, i) in jarMoods" :key="i" class="leading-none inline-flex items-center justify-center"
+            <span v-for="(m, i) in jarMoods" :key="i" class="leading-none inline-flex items-center justify-center flex-shrink-0"
+              style="font-size:12px; width:24px; height:24px; box-shadow: 0 0 2px rgba(0,0,0,0.1);"
               :style="{
-                fontSize: Math.min(14, Math.max(8, 180 / jarMoods.length)) + 'px',
-                borderRadius: m.shape === 'circle' ? '50%' : '5px',
+                borderRadius: m.shape === 'circle' ? '50%' : '4px',
                 background: m.color,
-                width: Math.min(22, Math.max(12, 300 / jarMoods.length)) + 'px',
-                height: Math.min(22, Math.max(12, 300 / jarMoods.length)) + 'px',
-                boxShadow: '0 0 2px rgba(0,0,0,0.1)',
               }">
               {{ m.emoji }}
             </span>
@@ -341,9 +339,13 @@
         </div>
         <div class="grid grid-cols-7 gap-1.5 text-center">
           <span v-for="d in '日一二三四五六'" :key="d" class="text-gray-400 pt-1 pb-2 font-medium text-xs">{{ d }}</span>
-          <div v-for="day in calDays" :key="day.key" class="py-2 cursor-pointer rounded-xl hover:bg-dream-50 flex flex-col items-center justify-center gap-0.5"
+          <div v-for="day in calDays" :key="day.key" class="py-2 cursor-pointer rounded-xl hover:bg-dream-50 flex flex-col items-center justify-center gap-0.5 transition-colors"
             style="min-height:78px"
-            :class="{ 'bg-dream-100/50': day.date === todayStr, 'opacity-30': !day.currentMonth }" @click="day.currentMonth ? openDayMood(day.date) : null">
+            :class="{
+              'bg-dream-200/60': day.date === todayStr,
+              'bg-dream-100/40': day.date === selectedDate && day.date !== todayStr,
+              'opacity-30': !day.currentMonth
+            }" @click="day.currentMonth ? openDayMood(day.date) : null">
             <div class="text-gray-600 text-xs font-medium leading-none">{{ day.day || '' }}</div>
             <!-- 心情图标：属性名 my / towa（来自 loadMoods 展开） -->
             <template v-if="day.my || day.towa">
@@ -458,6 +460,7 @@ const jarMoods = ref<{ emoji: string; color: string; shape: 'circle'|'square' }[
 const allMoods = ref<Record<string, { my?: string; towa?: string }>>({})
 
 const calYear = ref(new Date().getFullYear()); const calMonth = ref(new Date().getMonth() + 1)
+const selectedDate = ref('')  // 日历中当前选中（供高亮）
 const years = computed(() => Array.from({ length: 5 }, (_, i) => calYear.value - 2 + i))
 const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月']
 const calDays = computed(() => {
@@ -497,11 +500,17 @@ async function loadMoods() {
   const { data } = await supabase.from('moods').select('*').order('date')
   if (data) {
     allMoods.value = {}; jarMoods.value = []
+    // 瓶子内只显示真实当前月份的心情（不跟随日历弹窗的查看月份），每月自动清零
+    const now = new Date()
+    const realYear = now.getFullYear()
+    const realMonth = now.getMonth() + 1
+    const realMonthPrefix = `${realYear}-${String(realMonth).padStart(2,'0')}`
     for (const m of data) {
       const mood = m as any
+      // allMoods 存全部数据 -> 日历不受影响
       allMoods.value[m.date] = { my: mood.my_mood || undefined, towa: mood.towa_mood || undefined }
-      const prefix = `${calYear.value}-${String(calMonth.value).padStart(2,'0')}`
-      if (m.date.startsWith(prefix)) {
+      // jarMoods 只用真实当前月份 -> 瓶内每月1日自动清空
+      if (m.date.startsWith(realMonthPrefix)) {
         if (mood.my_mood) {
           const cfg = getMood(mood.my_mood)
           if (cfg) jarMoods.value.push({ emoji: cfg.emoji, color: cfg.color, shape: 'circle' })
@@ -512,6 +521,8 @@ async function loadMoods() {
         }
       }
     }
+    // 反转：flex-wrap 最新心情先排到顶行，早期心情自然沉底
+    jarMoods.value.reverse()
   }
 }
 async function saveMood() {
@@ -520,11 +531,11 @@ async function saveMood() {
   showMoodPopup.value = false; await loadMoods()
 }
 function closeMoodPopup() { showMoodPopup.value = false }
-function openDayMood(date: string) { if (!date) return; editDayDate.value = date; editMyMood.value = allMoods.value[date]?.my || ''; editTowaMood.value = allMoods.value[date]?.towa || '' }
+function openDayMood(date: string) { if (!date) return; selectedDate.value = date; editDayDate.value = date; editMyMood.value = allMoods.value[date]?.my || ''; editTowaMood.value = allMoods.value[date]?.towa || '' }
 async function saveDayMood() {
   const { data: { user } } = await supabase.auth.getUser(); if (!user) return
   await supabase.from('moods').upsert({ user_id: user.id, date: editDayDate.value, my_mood: editMyMood.value || undefined, towa_mood: editTowaMood.value || undefined } as any, { onConflict: 'user_id,date' })
-  editDayDate.value = ''; await loadMoods()
+  selectedDate.value = ''; editDayDate.value = ''; await loadMoods()
 }
 
 // ===== 画板存档系统（localStorage 本地存储） =====
